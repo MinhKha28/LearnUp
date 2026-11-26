@@ -8,9 +8,13 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from 'generated/prisma/client';
 import { RELAY_CONFIG, type RelayConfig } from './relay.config';
-import { GateFailure, OutboxGate, type GateReadiness } from './relay.gate';
+import {
+  GateFailure,
+  OutboxGate,
+  toGateFailure,
+  type GateReadiness,
+} from './relay.gate';
 import { RelayRepository, type RelayRow } from './relay.repository';
-import { classifyError } from './relay.kafka-gate';
 
 const BROKER_UNAVAILABLE_KEY = 'broker-unavailable';
 
@@ -79,7 +83,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
     this.running = this.run()
       .catch((error: unknown) =>
         this.logger.error(
-          `OUTBOX_RELAY_FAILURE code=${classifyError(error).code}`,
+          `OUTBOX_RELAY_FAILURE code=${toGateFailure(error).code}`,
         ),
       )
       .finally(() => {

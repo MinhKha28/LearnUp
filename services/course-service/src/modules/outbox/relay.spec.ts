@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
+import { KafkaJS } from '@confluentinc/kafka-javascript';
 import {
   RelayProducer,
   SerializationFailure,
@@ -12,15 +13,11 @@ import { readRelayConfig } from './relay.config';
 import type { OutboxRow } from './interfaces/outbox-row.interface';
 
 jest.mock('./relay.repository', () => ({ RelayRepository: class {} }));
+// No native client: the tests that build real RelayProducer clients replace this constructor.
 jest.mock('@confluentinc/kafka-javascript', () => ({
-  CODES: {
-    ERRORS: {
-      ERR_MSG_SIZE_TOO_LARGE: 10,
-      ERR__KEY_SERIALIZATION: -1,
-      ERR__VALUE_SERIALIZATION: -2,
-      ERR_INVALID_MSG: 2,
-      ERR_INVALID_MSG_SIZE: 4,
-    },
+  KafkaJS: {
+    Kafka: jest.fn(),
+    logLevel: { NOTHING: 0 },
   },
 }));
 
@@ -386,15 +383,17 @@ it.each([
 ])(
   'logs the error name and classified code for an unexpected tick failure %#',
   async (error, name, diagnostic) => {
-    const h = harness([], () => Promise.resolve());
+    // ready() never rejects (it returns a readiness failure), so the failure comes from the claim transaction.
+    const h = harness([row(1)], () => Promise.resolve());
     const errorLog = jest.spyOn(Logger.prototype, 'error');
-    jest.spyOn(h.producer, 'ready').mockRejectedValueOnce(error);
+    h.repository.transaction.mockRejectedValueOnce(error);
     await h.service.tick();
     expect(errorLog).toHaveBeenCalledWith(
       `OUTBOX_RELAY_FAILURE ${name} code=${diagnostic}`,
     );
+    expect(h.published).toEqual([]);
     await h.service.tick();
-    expect(h.repository.transaction).toHaveBeenCalledTimes(1);
+    expect(h.published).toEqual([row(1).id]);
   },
 );
 
@@ -402,4 +401,128 @@ it('classifies non-Error inputs directly', () => {
   expect(classifyError({ code: -195 }).code).toBe('KAFKA_-195');
   expect(classifyError('private broker details').code).toBe('OUTBOX_UNKNOWN');
   expect(classifyError(undefined).code).toBe('OUTBOX_UNKNOWN');
+});
+
+interface FakeClient {
+  connect: jest.Mock<() => Promise<void>>;
+  disconnect: jest.Mock<() => Promise<void>>;
+  listTopics: jest.Mock<() => Promise<string[]>>;
+}
+
+function fakeClient(connectError?: Error): FakeClient {
+  return {
+    connect: jest.fn(() =>
+      connectError ? Promise.reject(connectError) : Promise.resolve(),
+    ),
+    disconnect: jest.fn(() => Promise.resolve()),
+    listTopics: jest.fn(() => Promise.resolve([config.topic])),
+  };
+}
+
+/** One Kafka build: the producer and admin that kafka.producer() and kafka.admin() return, or a throw from admin(). */
+interface ClientBuild {
+  producer: FakeClient;
+  admin: FakeClient | Error;
+}
+
+/** Replaces the KafkaJS constructor so each RelayProducer build takes the next planned clients. */
+function planKafkaBuilds(builds: ClientBuild[]) {
+  let next = 0;
+  jest.mocked(KafkaJS.Kafka).mockImplementation(() => {
+    const build = builds[next++];
+    return {
+      producer: () => build.producer,
+      admin: () => {
+        if (build.admin instanceof Error) throw build.admin;
+        return build.admin;
+      },
+    } as unknown as jest.Mocked<KafkaJS.Kafka>;
+  });
+  return { builds: () => next };
+}
+
+function relayClients(producer: RelayProducer) {
+  return producer as unknown as { producer?: unknown; admin?: unknown };
+}
+
+it('turns a failed probe into a readiness failure and rebuilds the clients', async () => {
+  const brokerDown = Object.assign(new Error('private broker details'), {
+    code: -195,
+  });
+  const first = { producer: fakeClient(), admin: fakeClient(brokerDown) };
+  const second = { producer: fakeClient(), admin: fakeClient() };
+  const kafka = planKafkaBuilds([first, second]);
+  const producer = new RelayProducer(config);
+
+  await expect(producer.ready()).resolves.toEqual({
+    status: 'broker-failure',
+    code: 'KAFKA_-195',
+  });
+  expect(kafka.builds()).toBe(2);
+  expect(first.producer.disconnect).toHaveBeenCalled();
+  expect(first.admin.disconnect).toHaveBeenCalled();
+
+  await expect(producer.ready()).resolves.toEqual({ status: 'ready' });
+  expect(second.producer.connect).toHaveBeenCalledTimes(1);
+});
+
+it('turns a client build failure during replacement into a readiness failure and retries cleanly', async () => {
+  const brokerDown = Object.assign(new Error('private broker details'), {
+    code: -195,
+  });
+  const buildError = Object.assign(new Error('private config details'), {
+    code: -172,
+  });
+  const first = { producer: fakeClient(), admin: fakeClient(brokerDown) };
+  // The producer is built, then admin() throws: this producer must be dropped, never used.
+  const halfBuilt = { producer: fakeClient(), admin: buildError };
+  const third = { producer: fakeClient(), admin: fakeClient() };
+  const kafka = planKafkaBuilds([first, halfBuilt, third]);
+  const producer = new RelayProducer(config);
+
+  await expect(producer.ready()).resolves.toEqual({
+    status: 'broker-failure',
+    code: 'KAFKA_-172',
+  });
+  expect(relayClients(producer).producer).toBeUndefined();
+  expect(relayClients(producer).admin).toBeUndefined();
+
+  await expect(producer.ready()).resolves.toEqual({ status: 'ready' });
+  expect(kafka.builds()).toBe(3);
+  expect(relayClients(producer).producer).toBe(third.producer);
+  expect(relayClients(producer).admin).toBe(third.admin);
+  expect(halfBuilt.producer.connect).not.toHaveBeenCalled();
+  expect(halfBuilt.producer.disconnect).not.toHaveBeenCalled();
+});
+
+it('logs a client build failure as broker unavailability, not as a relay failure', async () => {
+  const buildError = Object.assign(new Error('private config details'), {
+    code: -172,
+  });
+  const first = {
+    producer: fakeClient(),
+    admin: fakeClient(Object.assign(new Error('down'), { code: -195 })),
+  };
+  planKafkaBuilds([first, { producer: fakeClient(), admin: buildError }]);
+  const producer = new RelayProducer(config);
+  const repository = { transaction: jest.fn() };
+  const service = new RelayService(
+    repository as unknown as RelayRepository,
+    producer,
+    config,
+  );
+  const warn = jest
+    .spyOn(Logger.prototype, 'warn')
+    .mockImplementation(() => {});
+  const error = jest
+    .spyOn(Logger.prototype, 'error')
+    .mockImplementation(() => {});
+
+  await service.tick();
+
+  expect(warn.mock.calls).toEqual([
+    ['OUTBOX_BROKER_UNAVAILABLE: will retry code=KAFKA_-172'],
+  ]);
+  expect(error).not.toHaveBeenCalled();
+  expect(repository.transaction).not.toHaveBeenCalled();
 });

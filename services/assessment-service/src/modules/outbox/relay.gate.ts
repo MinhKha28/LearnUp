@@ -1,3 +1,4 @@
+import { classifyKafkaRelayError } from '@learnup/ts-common';
 import { Injectable } from '@nestjs/common';
 import type { RelayRow } from './relay.repository';
 
@@ -19,6 +20,13 @@ export class GateFailure extends Error {
   ) {
     super(code);
   }
+}
+
+/** What the failure is called in `last_error`: a fixed identifier, never the text of the error. A named failure passes through as it is. */
+export function toGateFailure(error: unknown): GateFailure {
+  if (error instanceof GateFailure) return error;
+  const { code, individual } = classifyKafkaRelayError(error);
+  return new GateFailure(code, individual);
 }
 
 /**

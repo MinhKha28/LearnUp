@@ -1,6 +1,9 @@
-import { isKafkaTopicMissing, OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
+import {
+  classifyKafkaRelayError,
+  OUTBOX_TOPIC_MISSING,
+} from '@learnup/ts-common';
 import { Inject, Injectable } from '@nestjs/common';
-import { CODES, KafkaJS } from '@confluentinc/kafka-javascript';
+import { KafkaJS } from '@confluentinc/kafka-javascript';
 
 import { RELAY_CONFIG } from './relay.config';
 
@@ -10,16 +13,6 @@ import type {
   RelayErrorClassification,
   RelayReadiness,
 } from './interfaces/relay-error.interface';
-
-const errors = CODES.ERRORS;
-
-const individualCodes = new Set([
-  errors.ERR_MSG_SIZE_TOO_LARGE,
-  errors.ERR__KEY_SERIALIZATION,
-  errors.ERR__VALUE_SERIALIZATION,
-  errors.ERR_INVALID_MSG,
-  errors.ERR_INVALID_MSG_SIZE,
-]);
 
 const eventTypes = new Set([
   'CourseDisabled',
@@ -43,6 +36,7 @@ export class SerializationFailure extends Error {
   }
 }
 
+/** A row that cannot become a message is individual; every other error is classified by the shared helper. */
 export function classifyError(error: unknown): RelayErrorClassification {
   if (error instanceof SerializationFailure) {
     return {
@@ -51,20 +45,7 @@ export function classifyError(error: unknown): RelayErrorClassification {
     };
   }
 
-  const code =
-    typeof error === 'object' && error !== null && 'code' in error
-      ? error.code
-      : undefined;
-
-  if (isKafkaTopicMissing(code))
-    return { individual: false, code: OUTBOX_TOPIC_MISSING };
-  return {
-    individual: typeof code === 'number' && individualCodes.has(code),
-    code:
-      typeof code === 'number' && Number.isInteger(code)
-        ? `KAFKA_${code}`
-        : 'OUTBOX_UNKNOWN',
-  };
+  return classifyKafkaRelayError(error);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -205,8 +186,9 @@ export function message(row: OutboxRow) {
 
 @Injectable()
 export class RelayProducer {
-  private producer!: KafkaJS.Producer;
-  private admin!: KafkaJS.Admin;
+  /** Both are undefined only after a failed rebuild; the next ready() builds them again. */
+  private producer?: KafkaJS.Producer;
+  private admin?: KafkaJS.Admin;
 
   private connected = false;
 
@@ -214,11 +196,16 @@ export class RelayProducer {
     @Inject(RELAY_CONFIG)
     private readonly config: RelayConfig,
   ) {
+    // Built eagerly: the constructors open no connection, so the service still starts with Kafka down.
     if (this.config.enabled) {
       this.createClients();
     }
   }
 
+  /**
+   * Builds both clients or neither. A producer built before admin() throws is dropped:
+   * librdkafka opens no connection before connect(), so there is nothing to disconnect.
+   */
   private createClients(): void {
     const kafka = new KafkaJS.Kafka({
       kafkaJS: {
@@ -231,7 +218,7 @@ export class RelayProducer {
       },
     });
 
-    this.producer = kafka.producer({
+    const producer = kafka.producer({
       kafkaJS: {
         acks: -1,
         idempotent: true,
@@ -241,29 +228,37 @@ export class RelayProducer {
       },
       'delivery.timeout.ms': this.config.deliveryMs,
     });
+    const admin = kafka.admin();
 
-    this.admin = kafka.admin();
+    this.producer = producer;
+    this.admin = admin;
   }
 
   async ready(): Promise<RelayReadiness> {
     if (!this.config.enabled)
       return { status: 'broker-failure', code: 'OUTBOX_DISABLED' };
 
+    if (!this.producer || !this.admin) {
+      const buildFailure = this.buildClients();
+      if (buildFailure) return buildFailure;
+    }
+
     try {
+      const admin = this.requireAdmin();
       if (!this.connected) {
-        await this.admin.connect();
+        await admin.connect();
 
         try {
-          await this.producer.connect();
+          await this.requireProducer().connect();
         } catch (error) {
-          await this.admin.disconnect();
+          await admin.disconnect();
           throw error;
         }
 
         this.connected = true;
       }
 
-      const existingTopics = await this.admin.listTopics({
+      const existingTopics = await admin.listTopics({
         timeout: this.config.probeMs,
       });
       if ([this.config.topic].some((topic) => !existingTopics.includes(topic)))
@@ -271,19 +266,54 @@ export class RelayProducer {
       return { status: 'ready' };
     } catch (error) {
       if (!this.connected) {
-        await Promise.allSettled([
-          this.producer.disconnect(),
-          this.admin.disconnect(),
-        ]);
-
-        this.createClients();
+        const replacementFailure = await this.replaceClients();
+        if (replacementFailure) return replacementFailure;
       }
 
-      const { code } = classifyError(error);
-      return code === OUTBOX_TOPIC_MISSING
-        ? { status: 'missing-topics', topics: [this.config.topic] }
-        : { status: 'broker-failure', code };
+      return this.readinessFailure(error);
     }
+  }
+
+  /** Clients that failed to connect cannot reconnect: disconnect them, clear the fields and build new ones. */
+  private async replaceClients(): Promise<RelayReadiness | undefined> {
+    await Promise.allSettled([
+      this.producer?.disconnect(),
+      this.admin?.disconnect(),
+    ]);
+    this.producer = undefined;
+    this.admin = undefined;
+
+    return this.buildClients();
+  }
+
+  /**
+   * Returns undefined when the clients were built. A throw becomes the same readiness
+   * failure a failed probe returns, and the fields stay empty for the next ready().
+   */
+  private buildClients(): RelayReadiness | undefined {
+    try {
+      this.createClients();
+      return undefined;
+    } catch (error) {
+      return this.readinessFailure(error);
+    }
+  }
+
+  private readinessFailure(error: unknown): RelayReadiness {
+    const { code } = classifyError(error);
+    return code === OUTBOX_TOPIC_MISSING
+      ? { status: 'missing-topics', topics: [this.config.topic] }
+      : { status: 'broker-failure', code };
+  }
+
+  private requireProducer(): KafkaJS.Producer {
+    if (!this.producer) throw new Error('Kafka producer is not built');
+    return this.producer;
+  }
+
+  private requireAdmin(): KafkaJS.Admin {
+    if (!this.admin) throw new Error('Kafka admin is not built');
+    return this.admin;
   }
 
   async send(rows: OutboxRow[]): Promise<PromiseSettledResult<void>[]> {
@@ -293,7 +323,7 @@ export class RelayProducer {
     // failed events; librdkafka still batches the concurrent sends on the wire.
     return Promise.allSettled(
       rows.map(async (row) => {
-        await this.producer.send({
+        await this.requireProducer().send({
           topic: this.config.topic,
           messages: [message(row)],
         });
@@ -305,8 +335,8 @@ export class RelayProducer {
     if (!this.config.enabled) return;
 
     await Promise.allSettled([
-      this.producer.disconnect(),
-      this.admin.disconnect(),
+      this.producer?.disconnect(),
+      this.admin?.disconnect(),
     ]);
 
     this.connected = false;

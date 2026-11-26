@@ -1,39 +1,21 @@
-import { isKafkaTopicMissing, OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
+import {
+  classifyKafkaRelayError,
+  OUTBOX_TOPIC_MISSING,
+  type KafkaRelayErrorClassification,
+} from '@learnup/ts-common';
 import { Inject, Injectable } from '@nestjs/common';
-import { KafkaJS, CODES } from '@confluentinc/kafka-javascript';
+import { KafkaJS } from '@confluentinc/kafka-javascript';
 import { RELAY_CONFIG, type RelayConfig } from './relay.config';
 import type { OutboxRow } from './relay.repository';
 
-const errors = CODES.ERRORS;
-const messageCodes = new Set([
-  errors.ERR_MSG_SIZE_TOO_LARGE,
-  errors.ERR__KEY_SERIALIZATION,
-  errors.ERR__VALUE_SERIALIZATION,
-  errors.ERR_INVALID_MSG,
-  errors.ERR_INVALID_MSG_SIZE,
-]);
 export class SerializationFailure extends Error {
   readonly code = 'OUTBOX_SERIALIZATION';
 }
-export function classifyError(error: unknown): {
-  individual: boolean;
-  code: string;
-} {
+/** A row that cannot become a message is individual; every other error is classified by the shared helper. */
+export function classifyError(error: unknown): KafkaRelayErrorClassification {
   if (error instanceof SerializationFailure)
     return { individual: true, code: 'OUTBOX_SERIALIZATION' };
-  const code =
-    typeof error === 'object' && error !== null && 'code' in error
-      ? (error as { code: unknown }).code
-      : undefined;
-  if (isKafkaTopicMissing(code))
-    return { individual: false, code: OUTBOX_TOPIC_MISSING };
-  return {
-    individual: typeof code === 'number' && messageCodes.has(code),
-    code:
-      typeof code === 'number' && Number.isInteger(code)
-        ? `KAFKA_${code}`
-        : 'OUTBOX_UNKNOWN',
-  };
+  return classifyKafkaRelayError(error);
 }
 export function message(row: OutboxRow) {
   try {

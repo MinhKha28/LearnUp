@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { KafkaJS, CODES } from '@confluentinc/kafka-javascript';
 import { readRelayConfig } from '../../src/modules/outbox/relay.config';
-import { GateFailure } from '../../src/modules/outbox/relay.gate';
 import {
-  classifyError,
+  GateFailure,
+  toGateFailure,
+} from '../../src/modules/outbox/relay.gate';
+import {
   KafkaOutboxGate,
   readinessFailure,
   message,
@@ -100,7 +102,7 @@ describe('the message of PeerReviewAssigned', () => {
   });
 });
 
-describe('classifyError', () => {
+describe('toGateFailure', () => {
   const errors = CODES.ERRORS;
 
   test('a failure that is about the message is individual and keeps its number', () => {
@@ -109,7 +111,7 @@ describe('classifyError', () => {
       errors.ERR_INVALID_MSG,
       errors.ERR__KEY_SERIALIZATION,
     ]) {
-      const failure = classifyError({ code });
+      const failure = toGateFailure({ code });
       assert.equal(failure.individual, true, String(code));
       assert.equal(failure.code, `KAFKA_${code}`);
     }
@@ -117,14 +119,14 @@ describe('classifyError', () => {
 
   test('a failure of the broker or the network is the same for every row: not individual', () => {
     for (const code of [-195, -193, -192, -187, -185, 7]) {
-      const failure = classifyError({ code });
+      const failure = toGateFailure({ code });
       assert.equal(failure.individual, false, String(code));
       assert.equal(failure.code, `KAFKA_${code}`);
     }
   });
 
   test('anything else has a fixed code and never carries the text of the error', () => {
-    const failure = classifyError(new Error('broker at 10.0.0.5 said secret'));
+    const failure = toGateFailure(new Error('broker at 10.0.0.5 said secret'));
     assert.equal(failure.code, 'OUTBOX_UNKNOWN');
     assert.equal(failure.individual, false);
     assert.doesNotMatch(failure.message, /secret|10\.0\.0\.5/);
@@ -132,7 +134,7 @@ describe('classifyError', () => {
 
   test('a failure already named passes through as it is', () => {
     const named = new GateFailure('OUTBOX_SERIALIZATION', true);
-    assert.equal(classifyError(named), named);
+    assert.equal(toGateFailure(named), named);
   });
 });
 
@@ -187,8 +189,8 @@ describe('the Kafka settings of the relay', () => {
 
 test('missing numeric classification and mixed readiness failures retain broker severity', () => {
   for (const code of [3, -188]) {
-    assert.equal(classifyError({ code }).code, 'OUTBOX_TOPIC_MISSING');
-    assert.equal(classifyError({ code }).individual, false);
+    assert.equal(toGateFailure({ code }).code, 'OUTBOX_TOPIC_MISSING');
+    assert.equal(toGateFailure({ code }).individual, false);
   }
   assert.deepEqual(
     readinessFailure(new AggregateError([{ code: 3 }, { code: -188 }]), [
@@ -424,4 +426,166 @@ test('a generation replaced during listTopics rejects stale metadata and recover
     finish(topics);
     await f.gate.close();
   }
+});
+
+/** A Kafka client of the real gate whose connect may fail; listTopics answers with every relay topic. */
+function fakeKafkaClient(
+  config: ReturnType<typeof readRelayConfig>,
+  connectError?: Error,
+) {
+  return {
+    connects: 0,
+    disconnects: 0,
+    connect(): Promise<void> {
+      this.connects++;
+      if (connectError) return Promise.reject(connectError);
+      return Promise.resolve();
+    },
+    disconnect(): Promise<void> {
+      this.disconnects++;
+      return Promise.resolve();
+    },
+    listTopics(): Promise<string[]> {
+      return Promise.resolve([
+        config.topic,
+        config.peerReviewTopic,
+        config.submissionFinalizedTopic,
+      ]);
+    },
+  };
+}
+
+type FakeKafkaClient = ReturnType<typeof fakeKafkaClient>;
+
+/** Each build of the real gate takes the next planned producer and admin; an Error admin makes kafka.admin() throw. */
+function planGateBuilds(
+  t: import('node:test').TestContext,
+  builds: { producer: FakeKafkaClient; admin: FakeKafkaClient | Error }[],
+) {
+  let producers = 0;
+  let admins = 0;
+  t.mock.method(
+    KafkaJS.Kafka.prototype,
+    'producer',
+    () => builds[producers++].producer,
+  );
+  t.mock.method(KafkaJS.Kafka.prototype, 'admin', () => {
+    const admin = builds[admins++].admin;
+    if (admin instanceof Error) throw admin;
+    return admin;
+  });
+  return { producers: () => producers, admins: () => admins };
+}
+
+function gateClients(gate: KafkaOutboxGate) {
+  return gate as unknown as { producer?: unknown; admin?: unknown };
+}
+
+test('the real gate turns a failed probe into a readiness failure and rebuilds its clients', async (t) => {
+  const config = readRelayConfig(() => undefined);
+  const brokerDown = Object.assign(new Error('private broker details'), {
+    code: -195,
+  });
+  const first = {
+    producer: fakeKafkaClient(config),
+    admin: fakeKafkaClient(config, brokerDown),
+  };
+  const second = {
+    producer: fakeKafkaClient(config),
+    admin: fakeKafkaClient(config),
+  };
+  const builds = planGateBuilds(t, [first, second]);
+  const gate = new KafkaOutboxGate(config);
+
+  assert.deepEqual(await gate.ready(), {
+    status: 'broker-failure',
+    code: 'KAFKA_-195',
+  });
+  assert.equal(builds.admins(), 2);
+  assert.equal(first.producer.disconnects, 1);
+  assert.equal(gateClients(gate).admin, second.admin);
+
+  assert.deepEqual(await gate.ready(), { status: 'ready' });
+  assert.equal(second.producer.connects, 1);
+  await gate.close();
+});
+
+test('the real gate turns a client build failure during replacement into a readiness failure and retries cleanly', async (t) => {
+  const config = readRelayConfig(() => undefined);
+  const brokerDown = Object.assign(new Error('private broker details'), {
+    code: -195,
+  });
+  const buildError = Object.assign(new Error('private config details'), {
+    code: -172,
+  });
+  const first = {
+    producer: fakeKafkaClient(config),
+    admin: fakeKafkaClient(config, brokerDown),
+  };
+  // The producer is built, then kafka.admin() throws: this producer must be dropped, never used.
+  const halfBuilt = { producer: fakeKafkaClient(config), admin: buildError };
+  const third = {
+    producer: fakeKafkaClient(config),
+    admin: fakeKafkaClient(config),
+  };
+  const builds = planGateBuilds(t, [first, halfBuilt, third]);
+  const gate = new KafkaOutboxGate(config);
+
+  assert.deepEqual(await gate.ready(), {
+    status: 'broker-failure',
+    code: 'KAFKA_-172',
+  });
+  assert.equal(gateClients(gate).producer, undefined);
+  assert.equal(gateClients(gate).admin, undefined);
+
+  assert.deepEqual(await gate.ready(), { status: 'ready' });
+  assert.equal(builds.producers(), 3);
+  assert.equal(gateClients(gate).producer, third.producer);
+  assert.equal(gateClients(gate).admin, third.admin);
+  assert.equal(halfBuilt.producer.connects, 0);
+  assert.equal(halfBuilt.producer.disconnects, 0);
+  await gate.close();
+});
+
+test('a client build failure reaches the relay as an unavailable gate, not as a relay failure', async (t) => {
+  const config = readRelayConfig(() => undefined);
+  const brokerDown = Object.assign(new Error('private broker details'), {
+    code: -195,
+  });
+  const buildError = Object.assign(new Error('private config details'), {
+    code: -172,
+  });
+  planGateBuilds(t, [
+    {
+      producer: fakeKafkaClient(config),
+      admin: fakeKafkaClient(config, brokerDown),
+    },
+    { producer: fakeKafkaClient(config), admin: buildError },
+  ]);
+  const gate = new KafkaOutboxGate(config);
+  let claims = 0;
+  const repository = {
+    transaction: () => {
+      claims++;
+      return Promise.resolve();
+    },
+  } as unknown as RelayRepository;
+  const service = new RelayService(repository, gate, config);
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  Object.assign(service, {
+    logger: {
+      log: () => {},
+      warn: (message: string) => warnings.push(message),
+      error: (message: string) => errors.push(message),
+    },
+  });
+
+  await service.tick();
+
+  assert.deepEqual(warnings, [
+    'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=KAFKA_-172',
+  ]);
+  assert.deepEqual(errors, []);
+  assert.equal(claims, 0);
 });
