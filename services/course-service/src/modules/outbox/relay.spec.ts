@@ -382,6 +382,7 @@ it.each([
     'KAFKA_-195',
   ],
   [new Error('private database details'), 'Error', 'OUTBOX_UNKNOWN'],
+  [undefined, 'Unknown', 'OUTBOX_UNKNOWN'],
 ])(
   'logs the error name and classified code for an unexpected tick failure %#',
   async (error, name, diagnostic) => {
