@@ -84,16 +84,6 @@ before(async () => {
       FROM outbox_events
       WHERE published_at IS NULL
         AND aggregate_type = 'Course'
-        AND event_type IN (
-          'CourseDisabled',
-          'CourseReactivated',
-          'CourseComponentDisabled',
-          'CourseComponentReactivated',
-          'CourseSubmitted',
-          'CoursePublished',
-          'CourseRejected',
-          'CourseOwnershipTransferred'
-        )
     )
     SELECT
       COUNT(*)::int AS "unpublishedRows",
@@ -119,7 +109,14 @@ beforeEach(async () => {
   await prisma.outboxEvent.deleteMany({ where: fixtureWhere });
 });
 after(async () => {
-  await prisma.$disconnect();
+  try {
+    await prisma.outboxEvent.deleteMany({ where: fixtureWhere });
+  } catch (error) {
+    process.exitCode = 1;
+    throw error;
+  } finally {
+    await prisma.$disconnect();
+  }
 });
 
 test('20 slow ACKs commit once inside the real transaction budget', async () => {
