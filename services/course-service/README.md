@@ -90,8 +90,9 @@ the test setup; never use production credentials. Run from course-service:
 # Required: DATABASE_URL points to the migrated disposable Course database.
 npm run test:e2e -- --runInBand
 
-# DB suites also require OUTBOX_TEST_DATABASE_URL for that disposable Course DB.
-export OUTBOX_TEST_DATABASE_URL="$DATABASE_URL"
+# Separately provision and migrate a dedicated relay test database.
+# Never reuse DATABASE_URL for OUTBOX_TEST_DATABASE_URL.
+export OUTBOX_TEST_DATABASE_URL="postgresql://<user>:<password>@<host>:<port>/course_relay_test"
 npm run test:db
 
 # Separate terminal: use the same Course DATABASE_URL, seed it and start Course.
@@ -103,6 +104,11 @@ node -r ts-node/register -r ./test/setup-env.ts dist/src/main.js
 # COURSE_SERVICE_URL (the Course HTTP URL, e.g. http://127.0.0.1:3000).
 npm run test:values:learning
 ```
+
+OUTBOX_TEST_DATABASE_URL must select a dedicated test database: tick() publishes
+claimable unpublished rows from every organization in that database through a fake
+producer. Never copy or reuse DATABASE_URL as this value. The relay precondition
+refuses foreign unpublished events before cleanup or publication.
 
 The course integration CI job runs e2e plus relay, catalog duration, enrollment
 lock and migration-value database suites, each against PostgreSQL only.
