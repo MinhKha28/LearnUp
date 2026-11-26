@@ -111,6 +111,9 @@ beforeEach(async () => {
 after(async () => {
   try {
     await prisma.outboxEvent.deleteMany({ where: fixtureWhere });
+  } catch (error) {
+    process.exitCode = 1;
+    throw error;
   } finally {
     await prisma.$disconnect();
   }
