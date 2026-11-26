@@ -68,7 +68,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
         this.logger.error(
           `OUTBOX_RELAY_FAILURE ${
             error instanceof Error ? error.name : 'Unknown'
-          }`,
+          } code=${classifyError(error).code}`,
         );
       })
       .finally(() => {
@@ -93,7 +93,9 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
               `${OUTBOX_TOPIC_MISSING} topic=${topic} hint="run kafka-init"`,
             );
         } else {
-          this.logger.warn('OUTBOX_BROKER_UNAVAILABLE: will retry');
+          this.logger.warn(
+            `OUTBOX_BROKER_UNAVAILABLE: will retry code=${ready.code}`,
+          );
         }
       }
       this.lastReadinessFailure = reason;
