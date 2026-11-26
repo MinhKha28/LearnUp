@@ -239,8 +239,10 @@ export class RelayProducer {
       return { status: 'broker-failure', code: 'OUTBOX_DISABLED' };
 
     if (!this.producer || !this.admin) {
-      const buildFailure = this.buildClients();
-      if (buildFailure) return buildFailure;
+      // No probe can run without clients, so the build failure is the only code there is.
+      const buildFailureCode = this.buildClients();
+      if (buildFailureCode)
+        return { status: 'broker-failure', code: buildFailureCode };
     }
 
     try {
@@ -265,17 +267,23 @@ export class RelayProducer {
         return { status: 'missing-topics', topics: [this.config.topic] };
       return { status: 'ready' };
     } catch (error) {
-      if (!this.connected) {
-        const replacementFailure = await this.replaceClients();
-        if (replacementFailure) return replacementFailure;
-      }
+      const probeFailure = this.readinessFailure(error);
+      if (this.connected) return probeFailure;
 
-      return this.readinessFailure(error);
+      const rebuildCode = await this.replaceClients();
+      // The probe's code stays the reason; a failed rebuild is attached, not swapped in.
+      if (rebuildCode && probeFailure.status === 'broker-failure') {
+        return { ...probeFailure, rebuildCode };
+      }
+      return probeFailure;
     }
   }
 
-  /** Clients that failed to connect cannot reconnect: disconnect them, clear the fields and build new ones. */
-  private async replaceClients(): Promise<RelayReadiness | undefined> {
+  /**
+   * Clients that failed to connect cannot reconnect: disconnect them, clear the fields and
+   * build new ones. Returns the classified code if the build throws.
+   */
+  private async replaceClients(): Promise<string | undefined> {
     await Promise.allSettled([
       this.producer?.disconnect(),
       this.admin?.disconnect(),
@@ -287,15 +295,15 @@ export class RelayProducer {
   }
 
   /**
-   * Returns undefined when the clients were built. A throw becomes the same readiness
-   * failure a failed probe returns, and the fields stay empty for the next ready().
+   * Returns undefined when the clients were built, otherwise the classified code of the throw.
+   * After a throw the fields stay empty, so the next ready() builds them again.
    */
-  private buildClients(): RelayReadiness | undefined {
+  private buildClients(): string | undefined {
     try {
       this.createClients();
       return undefined;
     } catch (error) {
-      return this.readinessFailure(error);
+      return classifyError(error).code;
     }
   }
 

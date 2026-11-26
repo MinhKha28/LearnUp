@@ -480,9 +480,11 @@ it('turns a client build failure during replacement into a readiness failure and
   const kafka = planKafkaBuilds([first, halfBuilt, third]);
   const producer = new RelayProducer(config);
 
+  // The probe's code stays the reason; the rebuild failure is attached beside it.
   await expect(producer.ready()).resolves.toEqual({
     status: 'broker-failure',
-    code: 'KAFKA_-172',
+    code: 'KAFKA_-195',
+    rebuildCode: 'KAFKA_-172',
   });
   expect(relayClients(producer).producer).toBeUndefined();
   expect(relayClients(producer).admin).toBeUndefined();
@@ -495,7 +497,7 @@ it('turns a client build failure during replacement into a readiness failure and
   expect(halfBuilt.producer.disconnect).not.toHaveBeenCalled();
 });
 
-it('logs a client build failure as broker unavailability, not as a relay failure', async () => {
+it('logs a failed rebuild after a failed probe as rebuild_code beside the probe code', async () => {
   const buildError = Object.assign(new Error('private config details'), {
     code: -172,
   });
@@ -521,8 +523,37 @@ it('logs a client build failure as broker unavailability, not as a relay failure
   await service.tick();
 
   expect(warn.mock.calls).toEqual([
-    ['OUTBOX_BROKER_UNAVAILABLE: will retry code=KAFKA_-172'],
+    [
+      'OUTBOX_BROKER_UNAVAILABLE: will retry code=KAFKA_-195 rebuild_code=KAFKA_-172',
+    ],
   ]);
   expect(error).not.toHaveBeenCalled();
+  expect(repository.transaction).not.toHaveBeenCalled();
+});
+
+it('logs exactly the probe failure line when the rebuild after it succeeds', async () => {
+  const brokerDown = Object.assign(new Error('private broker details'), {
+    code: -195,
+  });
+  planKafkaBuilds([
+    { producer: fakeClient(), admin: fakeClient(brokerDown) },
+    { producer: fakeClient(), admin: fakeClient(brokerDown) },
+  ]);
+  const producer = new RelayProducer(config);
+  const repository = { transaction: jest.fn() };
+  const service = new RelayService(
+    repository as unknown as RelayRepository,
+    producer,
+    config,
+  );
+  const warn = jest
+    .spyOn(Logger.prototype, 'warn')
+    .mockImplementation(() => {});
+
+  await service.tick();
+
+  expect(warn.mock.calls).toEqual([
+    ['OUTBOX_BROKER_UNAVAILABLE: will retry code=KAFKA_-195'],
+  ]);
   expect(repository.transaction).not.toHaveBeenCalled();
 });

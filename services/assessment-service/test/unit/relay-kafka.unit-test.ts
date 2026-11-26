@@ -2,7 +2,10 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { KafkaJS, CODES } from '@confluentinc/kafka-javascript';
-import { readRelayConfig } from '../../src/modules/outbox/relay.config';
+import {
+  readRelayConfig,
+  type RelayConfig,
+} from '../../src/modules/outbox/relay.config';
 import {
   GateFailure,
   toGateFailure,
@@ -531,9 +534,11 @@ test('the real gate turns a client build failure during replacement into a readi
   const builds = planGateBuilds(t, [first, halfBuilt, third]);
   const gate = new KafkaOutboxGate(config);
 
+  // The probe's code stays the reason; the rebuild failure is attached beside it.
   assert.deepEqual(await gate.ready(), {
     status: 'broker-failure',
-    code: 'KAFKA_-172',
+    code: 'KAFKA_-195',
+    rebuildCode: 'KAFKA_-172',
   });
   assert.equal(gateClients(gate).producer, undefined);
   assert.equal(gateClients(gate).admin, undefined);
@@ -547,7 +552,48 @@ test('the real gate turns a client build failure during replacement into a readi
   await gate.close();
 });
 
-test('a client build failure reaches the relay as an unavailable gate, not as a relay failure', async (t) => {
+const OUTAGE_ALERT_MS = 5 * 60_000;
+const OLDEST_UNSENT_AGE_MS = 60_000;
+
+/** A relay over the real gate whose clock the test moves; it records every log line and claim. */
+function relayOverRealGate(gate: KafkaOutboxGate, config: RelayConfig) {
+  const start = Date.parse('2026-11-26T08:00:00.000Z');
+  let time = start;
+  let claims = 0;
+  const repository = {
+    transaction: () => {
+      claims++;
+      return Promise.resolve();
+    },
+    unsentSummary: () =>
+      Promise.resolve({
+        count: 2,
+        oldestAt: new Date(start - OLDEST_UNSENT_AGE_MS),
+      }),
+  } as unknown as RelayRepository;
+  const service = new RelayService(repository, gate, config);
+  service.now = () => time;
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  Object.assign(service, {
+    logger: {
+      log: () => {},
+      warn: (message: string) => warnings.push(message),
+      error: (message: string) => errors.push(message),
+    },
+  });
+  return {
+    service,
+    warnings,
+    errors,
+    claims: () => claims,
+    passOutageAlertPeriod: () => {
+      time += OUTAGE_ALERT_MS;
+    },
+  };
+}
+
+test('a failed rebuild after a failed probe is logged as rebuild_code beside the probe code', async (t) => {
   const config = readRelayConfig(() => undefined);
   const brokerDown = Object.assign(new Error('private broker details'), {
     code: -195,
@@ -561,31 +607,48 @@ test('a client build failure reaches the relay as an unavailable gate, not as a 
       admin: fakeKafkaClient(config, brokerDown),
     },
     { producer: fakeKafkaClient(config), admin: buildError },
+    {
+      producer: fakeKafkaClient(config),
+      admin: fakeKafkaClient(config, brokerDown),
+    },
+    { producer: fakeKafkaClient(config), admin: buildError },
   ]);
-  const gate = new KafkaOutboxGate(config);
-  let claims = 0;
-  const repository = {
-    transaction: () => {
-      claims++;
-      return Promise.resolve();
-    },
-  } as unknown as RelayRepository;
-  const service = new RelayService(repository, gate, config);
-  const warnings: string[] = [];
-  const errors: string[] = [];
-  Object.assign(service, {
-    logger: {
-      log: () => {},
-      warn: (message: string) => warnings.push(message),
-      error: (message: string) => errors.push(message),
-    },
+  const relay = relayOverRealGate(new KafkaOutboxGate(config), config);
+
+  await relay.service.tick();
+  relay.passOutageAlertPeriod();
+  await relay.service.tick();
+
+  assert.deepEqual(relay.warnings, [
+    'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=KAFKA_-195 rebuild_code=KAFKA_-172',
+  ]);
+  assert.deepEqual(relay.errors, [
+    'OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=300 unsent=2 oldest_unsent_age_s=360 broker_code=KAFKA_-195 rebuild_code=KAFKA_-172',
+  ]);
+  assert.equal(relay.claims(), 0);
+});
+
+test('a successful rebuild after a failed probe logs exactly the probe failure lines', async (t) => {
+  const config = readRelayConfig(() => undefined);
+  const brokerDown = Object.assign(new Error('private broker details'), {
+    code: -195,
   });
+  const failingBuild = () => ({
+    producer: fakeKafkaClient(config),
+    admin: fakeKafkaClient(config, brokerDown),
+  });
+  planGateBuilds(t, [failingBuild(), failingBuild(), failingBuild()]);
+  const relay = relayOverRealGate(new KafkaOutboxGate(config), config);
 
-  await service.tick();
+  await relay.service.tick();
+  relay.passOutageAlertPeriod();
+  await relay.service.tick();
 
-  assert.deepEqual(warnings, [
-    'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=KAFKA_-172',
+  assert.deepEqual(relay.warnings, [
+    'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=KAFKA_-195',
   ]);
-  assert.deepEqual(errors, []);
-  assert.equal(claims, 0);
+  assert.deepEqual(relay.errors, [
+    'OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=300 unsent=2 oldest_unsent_age_s=360 broker_code=KAFKA_-195',
+  ]);
+  assert.equal(relay.claims(), 0);
 });

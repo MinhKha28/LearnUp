@@ -20,6 +20,14 @@ const BROKER_UNAVAILABLE_KEY = 'broker-unavailable';
 
 const CLEANUP_EVERY_MS = 60 * 60 * 1000;
 
+/** ` rebuild_code=<code>` when rebuilding the clients failed after the probe; empty otherwise, so the line stays as before. */
+function rebuildCodeToken(
+  readiness: Extract<GateReadiness, { status: 'broker-failure' }>,
+): string {
+  if (!readiness.rebuildCode) return '';
+  return ` rebuild_code=${readiness.rebuildCode}`;
+}
+
 /**
  * Publishes the outbox events of assessment-service: every second it claims up to a batch of the events not sent yet,
  * hands them to the gate and marks them sent, all in one transaction, so a crash in the middle leaves them unsent and the
@@ -168,7 +176,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
           );
       } else {
         this.logger.warn(
-          `OUTBOX_GATE_UNAVAILABLE: the relay will retry code=${readiness.code}`,
+          `OUTBOX_GATE_UNAVAILABLE: the relay will retry code=${readiness.code}${rebuildCodeToken(readiness)}`,
         );
       }
       this.lastReadinessFailure = reason;
@@ -189,7 +197,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
         : 'OUTBOX_GATE_UNAVAILABLE';
     const brokerCode =
       readiness.status === 'broker-failure'
-        ? ` broker_code=${readiness.code}`
+        ? ` broker_code=${readiness.code}${rebuildCodeToken(readiness)}`
         : '';
     const downSeconds = Math.round((now - this.gateDownSince) / 1000);
     try {

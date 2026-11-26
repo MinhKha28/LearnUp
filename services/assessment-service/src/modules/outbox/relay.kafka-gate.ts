@@ -119,15 +119,15 @@ export class KafkaOutboxGate extends OutboxGate {
   }
 
   /**
-   * Returns undefined when the clients were built. A throw becomes the same readiness
-   * failure a failed probe returns, and the fields stay empty for the next ready().
+   * Returns undefined when the clients were built, otherwise the classified code of the throw.
+   * After a throw the fields stay empty, so the next ready() builds them again.
    */
-  private buildClients(): GateReadiness | undefined {
+  private buildClients(): string | undefined {
     try {
       this.createClients();
       return undefined;
     } catch (error) {
-      return readinessFailure(error, topicsOf(this.config));
+      return toGateFailure(error).code;
     }
   }
 
@@ -148,8 +148,10 @@ export class KafkaOutboxGate extends OutboxGate {
    */
   async ready(): Promise<GateReadiness> {
     if (!this.producer || !this.admin) {
-      const buildFailure = this.buildClients();
-      if (buildFailure) return buildFailure;
+      // No probe can run without clients, so the build failure is the only code there is.
+      const buildFailureCode = this.buildClients();
+      if (buildFailureCode)
+        return { status: 'broker-failure', code: buildFailureCode };
     }
     const generation = this.generation;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -168,15 +170,16 @@ export class KafkaOutboxGate extends OutboxGate {
       // Missing topics do not damage clients; only broker failures count here.
       this.failedProbes += 1;
       if (!this.connected || this.failedProbes >= PROBES_BEFORE_NEW_CLIENTS) {
-        const replacementFailure = this.replaceClients();
-        if (replacementFailure) return replacementFailure;
+        // The probe's code stays the reason; a failed rebuild is attached, not swapped in.
+        const rebuildCode = this.replaceClients();
+        if (rebuildCode) return { ...answered, rebuildCode };
       }
     }
     return answered;
   }
 
-  /** Disconnects the current clients, clears the fields and builds new ones; returns a readiness failure if the build throws. */
-  private replaceClients(): GateReadiness | undefined {
+  /** Disconnects the current clients, clears the fields and builds new ones; returns the classified code if the build throws. */
+  private replaceClients(): string | undefined {
     this.generation += 1;
     this.connected = false;
     this.failedProbes = 0;
