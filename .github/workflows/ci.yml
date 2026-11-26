@@ -395,21 +395,26 @@ jobs:
         run: npx prisma generate --config prisma7.config.ts
 
       - name: Migrate disposable database
+        id: migrate
         run: npx prisma migrate deploy --config prisma7.config.ts
 
       - name: HTTP integration tests
         run: npm run test:e2e -- --runInBand
 
       - name: Outbox relay database tests
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         run: npm run test:relay:db
 
       - name: Catalog duration database tests
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         run: npm run test:catalog:db
 
       - name: Enrollment lock database tests
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         run: npm run test:lock:db
 
       - name: Course value migration tests
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         run: npm run test:migration
 
   # Self-contained Learning integration suite (disposable database, in-process
