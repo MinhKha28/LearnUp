@@ -75,3 +75,43 @@ This HTTP integration suite uses the real Prisma/PostgreSQL query and isolated
 random fixtures, removed after the suite; it does not run migrations.
 
 Kafka topic creation and drift handling are owned by the [shared provisioner](../../infrastructure/kafka/README.md). Services wait and retry while topics are unavailable; they never provision them.
+
+## Integration tests
+
+Use disposable PostgreSQL databases with the current migrations applied. E2e needs
+only PostgreSQL (no Kafka, Cloudinary credentials or other services). The separate
+Learning check also needs Learning dependencies/generated client, a migrated
+Learning database and a seeded Course database; both names must end in `_test`
+and start with `learning_` / `course_`. It locks the seeded Private course, so
+use fresh databases. Synthetic authentication and client defaults are supplied by
+the test setup; never use production credentials. Run from course-service:
+
+```sh
+# Required: DATABASE_URL points to the migrated disposable Course database.
+npm run test:e2e -- --runInBand
+
+# Separately provision and migrate a dedicated relay test database.
+# Never reuse DATABASE_URL for OUTBOX_TEST_DATABASE_URL.
+export OUTBOX_TEST_DATABASE_URL="postgresql://<user>:<password>@<host>:<port>/course_relay_test"
+npm run test:db
+
+# Separate terminal: use the same Course DATABASE_URL, seed it and start Course.
+npm run prisma:seed
+npm run build
+node -r ts-node/register -r ./test/setup-env.ts dist/src/main.js
+
+# Required for this command: DATABASE_URL (Learning), COURSE_DATABASE_URL (Course),
+# COURSE_SERVICE_URL (the Course HTTP URL, e.g. http://127.0.0.1:3000).
+npm run test:values:learning
+```
+
+OUTBOX_TEST_DATABASE_URL must select a dedicated test database: tick() publishes
+claimable unpublished rows from every organization in that database through a fake
+producer. Never copy or reuse DATABASE_URL as this value. The relay precondition
+refuses foreign unpublished events before cleanup or publication.
+
+The course integration CI job runs e2e plus relay, catalog duration, enrollment
+lock and migration-value database suites, each against PostgreSQL only.
+The catalog HTTP check needs a seeded running Course service and remains local.
+The real Course-to-Learning check remains a local integration
+check; it is separate from `test:e2e`.
