@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, before, beforeEach, test } from 'node:test';
+import { before, beforeEach, test } from 'node:test';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { readRelayConfig } from '../src/modules/outbox/relay.config';
@@ -10,6 +10,7 @@ import {
 } from '../src/modules/outbox/relay.producer';
 import { RelayService } from '../src/modules/outbox/relay.service';
 import type { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { reportingAfter } from './root-after';
 import type { OutboxRow } from '../src/modules/outbox/interfaces/outbox-row.interface';
 
 // Run only against an explicitly designated disposable database, never a demo DB.
@@ -108,16 +109,16 @@ before(async () => {
 beforeEach(async () => {
   await prisma.outboxEvent.deleteMany({ where: fixtureWhere });
 });
-after(async () => {
-  try {
-    await prisma.outboxEvent.deleteMany({ where: fixtureWhere });
-  } catch (error) {
-    process.exitCode = 1;
-    throw error;
-  } finally {
-    await prisma.$disconnect();
-  }
-});
+reportingAfter(
+  { file: __filename, hook: 'delete relay fixtures and disconnect' },
+  async () => {
+    try {
+      await prisma.outboxEvent.deleteMany({ where: fixtureWhere });
+    } finally {
+      await prisma.$disconnect();
+    }
+  },
+);
 
 test('20 slow ACKs commit once inside the real transaction budget', async () => {
   for (let n = 1; n <= 20; n++) await insert(n);
