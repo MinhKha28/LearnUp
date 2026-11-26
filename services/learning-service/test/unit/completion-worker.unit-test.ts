@@ -83,16 +83,27 @@ test('concurrency below batch claims only runnable slots, never queues leased wo
   assert.equal(pending, 0);
   assert.equal(maximum, 2);
 });
-test('persistent assessment errors honor backoff without a hot drain loop', async () => {
+test('persistent assessment errors honor backoff without a hot drain loop', async (t) => {
+  // Virtual time: the poll interval, the retry backoff and the observation window
+  // advance only when the test ticks the clock, so machine speed cannot change the result.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const POLL_MS = 5;
+  const RETRY_BACKOFF_MS = 50;
+  const LEASE_MS = 30000;
+  // Long enough for several backoff retries.
+  const OBSERVATION_WINDOW_MS = 300;
+  const CLOCK_STEP_MS = 1;
+  // At least one retry after the first failure, so an interval is actually checked.
+  const MIN_ASSESSMENT_CALLS = 2;
   const config = {
     ...readCompletionConfig(() => undefined),
     batchSize: 1,
     concurrency: 1,
-    pollMs: 5,
+    pollMs: POLL_MS,
   };
-  let due = 0,
-    claims = 0,
-    assessmentCalls = 0;
+  let nextClaimableAt = 0;
+  let claims = 0;
+  const assessmentCallTimes: number[] = [];
   const request = {
     enrollment_id: 'test',
     organization_id: 'test',
@@ -101,10 +112,12 @@ test('persistent assessment errors honor backoff without a hot drain loop', asyn
     expired: false,
   };
   const repo = {
+    // Like the real queue: a claimed request is leased, and a request waiting
+    // for its retry backoff is not claimable.
     claim: async () => {
       claims++;
-      if (Date.now() < due) return [];
-      due = Date.now() + 30000;
+      if (Date.now() < nextClaimableAt) return [];
+      nextClaimableAt = Date.now() + LEASE_MS;
       return [request];
     },
     enrollment: async () => ({
@@ -115,7 +128,7 @@ test('persistent assessment errors honor backoff without a hot drain loop', asyn
     }),
     materials: async () => ({ ready: true, required: 1 }),
     retry: async () => {
-      due = Date.now() + 50;
+      nextClaimableAt = Date.now() + RETRY_BACKOFF_MS;
       return 1;
     },
     metrics: async () => ({}),
@@ -124,7 +137,7 @@ test('persistent assessment errors honor backoff without a hot drain loop', asyn
     repo as unknown as CompletionRepository,
     {
       getCompletionSnapshot: async () => {
-        assessmentCalls++;
+        assessmentCallTimes.push(Date.now());
         throw new CompletionClientError('ASSESSMENT_UNAVAILABLE');
       },
     },
@@ -134,12 +147,48 @@ test('persistent assessment errors honor backoff without a hot drain loop', asyn
     service,
     config,
   );
-  worker.onModuleInit();
-  await new Promise((r) => setTimeout(r, 130));
-  await worker.beforeApplicationShutdown();
+  try {
+    worker.onModuleInit();
+    for (
+      let elapsedMs = 0;
+      elapsedMs < OBSERVATION_WINDOW_MS;
+      elapsedMs += CLOCK_STEP_MS
+    ) {
+      t.mock.timers.tick(CLOCK_STEP_MS);
+      await flush();
+    }
+  } finally {
+    await worker.beforeApplicationShutdown();
+    t.mock.timers.reset();
+  }
+
+  // The service handed the failure to the queue's retry, so the worker came back for it.
   assert.ok(
-    assessmentCalls >= 1 && assessmentCalls <= 3,
-    `assessment calls=${assessmentCalls}`,
+    assessmentCallTimes.length >= MIN_ASSESSMENT_CALLS,
+    `assessment calls=${assessmentCallTimes.length}`,
   );
-  assert.ok(claims < 40, `claims=${claims}`);
+  // The fake queue holds the request back for RETRY_BACKOFF_MS, so a shorter gap
+  // means the worker or service called assessment without a new claim
+  // (for example, retrying the failed request in place).
+  for (let index = 1; index < assessmentCallTimes.length; index++) {
+    const intervalMs =
+      assessmentCallTimes[index] - assessmentCallTimes[index - 1];
+    assert.ok(
+      intervalMs >= RETRY_BACKOFF_MS,
+      `assessment call ${index + 1} came ${intervalMs} ms after the previous call; backoff is ${RETRY_BACKOFF_MS} ms`,
+    );
+  }
+  // Hot drain loop guard: while the request is backing off, the worker must wait
+  // pollMs between claims. Allowed: one claim per poll tick (the first tick runs at
+  // start), plus one extra claim after each failed full wave. The bound is tight on
+  // purpose; virtual time makes the count exact. A worker that skips the poll wait
+  // or keeps draining empty claims makes about one claim per millisecond.
+  const maxPollTicks = OBSERVATION_WINDOW_MS / POLL_MS + 1;
+  const maxClaims = maxPollTicks + assessmentCallTimes.length;
+  assert.ok(claims <= maxClaims, `claims=${claims}, maximum=${maxClaims}`);
 });
+
+/** Lets pending promise chains and setImmediate callbacks run (real, not mocked). */
+function flush(): Promise<void> {
+  return new Promise<void>((resolve) => setImmediate(resolve));
+}

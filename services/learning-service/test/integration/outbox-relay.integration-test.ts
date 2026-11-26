@@ -72,6 +72,12 @@ async function insert(
 async function clear() {
   await prisma.$executeRaw`DELETE FROM outbox_events WHERE organization_id=${org}::uuid`;
 }
+function chaosContainer(): string {
+  const container = process.env.OUTBOX_TEST_KAFKA_CONTAINER;
+  if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container))
+    throw new Error('Explicit test Kafka container required');
+  return container;
+}
 async function waitFor(
   check: () => boolean | Promise<boolean>,
   timeout = 20000,
@@ -84,18 +90,51 @@ async function waitFor(
 }
 before(async () => {
   if (!enabled) return;
+  if (process.env.OUTBOX_KAFKA_CHAOS === 'true') {
+    const container = chaosContainer();
+    const running = execFileSync(
+      'docker',
+      ['inspect', '--format', '{{.State.Running}}', container],
+      { encoding: 'utf8', timeout: 10000 },
+    ).trim();
+    if (running === 'false') {
+      console.log('L6 starting stopped chaos broker');
+      execFileSync('docker', ['start', container], {
+        stdio: 'ignore',
+        timeout: 10000,
+      });
+    }
+  }
   await prisma.$connect();
   await consumer.connect();
   admin = consumer.dependentAdmin();
   await admin.connect();
+  await waitForBroker(admin);
   await require('../../../../infrastructure/kafka/test-topics.cjs').createTestTopics(
     admin,
     { 'enrollment-events': config.topic },
   );
-  await Promise.all([
-    waitFor(async () => (await p1.ready()) === true),
-    waitFor(async () => (await p2.ready()) === true),
-  ]);
+  let lastP1: true | string = 'not checked';
+  let lastP2: true | string = 'not checked';
+  try {
+    await Promise.all([
+      waitFor(async () => {
+        lastP1 = await p1.ready();
+        return lastP1 === true;
+      }),
+      waitFor(async () => {
+        lastP2 = await p2.ready();
+        return lastP2 === true;
+      }),
+    ]);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Relay readiness check failed';
+    throw new Error(
+      `${message}; p1.ready=${String(lastP1)}; p2.ready=${String(lastP2)}`,
+      { cause: error },
+    );
+  }
   await consumer.subscribe({ topics: [config.topic] });
   await consumer.run({
     eachMessage: async ({ message }) => {
@@ -215,14 +254,13 @@ test(
     timeout: 90000,
   },
   async () => {
-    const container = process.env.OUTBOX_TEST_KAFKA_CONTAINER;
-    if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container))
-      throw new Error('Explicit test Kafka container required');
+    const container = chaosContainer();
     await clear();
     received.length = 0;
     const aggregate = randomUUID();
     await insert(1000, aggregate, 1);
     await insert(1001, aggregate, 2);
+    const expectedEventIds = new Set([id(1000), id(1001)]);
     let app: NestExpressApplication | undefined;
     let heldMs = 0,
       transactionCalls = 0;
@@ -317,13 +355,99 @@ test(
       }
     }
     await waitFor(async () => (await p1.ready()) === true, 40000);
-    await r1.tick();
-    await r1.tick();
-    await waitFor(() => received.length >= 2, 30000);
-    assert.deepEqual(
-      received.map((r) => r.body.data.sequence),
-      [1, 2],
-    );
+    const readerGroupId = `recovery-${randomUUID()}`;
+    const freshReceived: typeof received = [];
+    const readerDebug: {
+      at: string;
+      level: string;
+      message: string;
+      metadata?: object;
+    }[] = [];
+    const recordReaderLog = (
+      level: string,
+      message: string,
+      metadata?: object,
+    ) => {
+      readerDebug.push({
+        at: new Date().toISOString(),
+        level,
+        message,
+        metadata,
+      });
+    };
+    const readerLogger: KafkaJS.Logger = {
+      info: (message, metadata) => recordReaderLog('info', message, metadata),
+      warn: (message, metadata) => recordReaderLog('warn', message, metadata),
+      error: (message, metadata) => recordReaderLog('error', message, metadata),
+      debug: (message, metadata) => recordReaderLog('debug', message, metadata),
+      namespace: () => readerLogger,
+      setLogLevel: () => undefined,
+    };
+    const reader = kafka.consumer({
+      kafkaJS: {
+        groupId: readerGroupId,
+        fromBeginning: true,
+        logger: readerLogger,
+      },
+      debug: 'cgrp,consumer,fetch',
+    });
+    try {
+      await reader.connect();
+      await reader.subscribe({ topics: [config.topic] });
+      await reader.run({
+        eachMessage: ({ message }) => {
+          const body = JSON.parse(
+            message.value!.toString(),
+          ) as (typeof received)[number]['body'];
+          if (expectedEventIds.has(body.eventId))
+            freshReceived.push({ key: message.key!.toString(), body });
+          return Promise.resolve();
+        },
+      });
+      try {
+        await waitFor(async () => {
+          await r1.tick();
+          return freshReceived.length >= 2;
+        }, 30000);
+      } catch (error) {
+        try {
+          const rows = await prisma.$queryRaw<
+            {
+              id: string;
+              attempts: number;
+              last_error: string | null;
+              published_at: Date | null;
+            }[]
+          >`SELECT id,attempts,last_error,published_at FROM outbox_events
+            WHERE organization_id=${org}::uuid ORDER BY id`;
+          console.error('L6 recovery timeout rows', JSON.stringify(rows));
+        } catch {
+          console.error('L6 recovery timeout: row diagnostics unavailable');
+        }
+        console.error(
+          'L6 recovery consumers',
+          JSON.stringify({
+            fresh: {
+              groupId: readerGroupId,
+              count: freshReceived.length,
+              receivedIds: freshReceived.map((message) => message.body.eventId),
+            },
+            shared: {
+              count: received.length,
+              receivedIds: received.map((message) => message.body.eventId),
+            },
+          }),
+        );
+        console.error('L6 recovery reader debug', JSON.stringify(readerDebug));
+        throw error;
+      }
+      assert.deepEqual(
+        freshReceived.map((message) => message.body.data.sequence),
+        [1, 2],
+      );
+    } finally {
+      await reader.disconnect();
+    }
     await clear();
   },
 );
@@ -335,9 +459,7 @@ test(
     timeout: 90000,
   },
   async () => {
-    const container = process.env.OUTBOX_TEST_KAFKA_CONTAINER;
-    if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container))
-      throw new Error('Explicit test Kafka container required');
+    const container = chaosContainer();
     const topic = `learnup.learning.cold-${randomUUID()}`;
     let app: TestAppProcess | undefined;
     const reader = kafka.consumer({

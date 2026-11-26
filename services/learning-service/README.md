@@ -45,7 +45,9 @@ It creates a unique topic/group, owns fixtures by a random organization id, and
 cleans its topic and rows. OUTBOX_KAFKA_CHAOS=true additionally requires
 OUTBOX_TEST_KAFKA_CONTAINER explicitly naming a disposable Compose Kafka container;
 that test stops/restarts it and checks HTTP database reads while Kafka is down.
-Never point chaos tests at a shared broker. Each test run measures publication
+At suite start, chaos mode checks this container, starts it if stopped, and waits
+for broker readiness. This repairs a broker left stopped when a previous run hit
+its suite cap. Never point chaos tests at a shared broker. Each test run measures publication
 p50/p95 and prints one synthetic envelope consumed from Kafka.
 On a slower machine the five opt-in Kafka tests together can exceed the default
 109 s suite cap; raise `LEARNING_IT_SUITE_TIMEOUT_MS` for that run.

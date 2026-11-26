@@ -30,6 +30,7 @@ export function after(
 /** Dependencies close in order; every task gets its own attempt and deadline. */
 export async function cleanupAll(tasks: CleanupTask[]): Promise<void> {
   const errors: unknown[] = [];
+  const failures: string[] = [];
   for (const task of tasks) {
     try {
       await deadline(
@@ -41,10 +42,15 @@ export async function cleanupAll(tasks: CleanupTask[]): Promise<void> {
         console.log(`it-cleanup closed ${task.name}`);
     } catch (error) {
       errors.push(error);
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${task.name}: ${message}`);
     }
   }
   if (errors.length)
-    throw new AggregateError(errors, 'Integration cleanup failed');
+    throw new AggregateError(
+      errors,
+      `Integration cleanup failed: ${failures.join('; ')}`,
+    );
 }
 
 export async function finishCleanup(
@@ -52,15 +58,25 @@ export async function finishCleanup(
   cause?: unknown,
 ): Promise<void> {
   const errors = fileErrors.splice(0);
-  if (cause !== undefined) errors.push(cause);
   try {
     await cleanupAll(tasks);
   } catch (error) {
     errors.push(error);
   }
-  if (errors.length === 0) return;
+  if (cause === undefined && errors.length === 0) return;
   // Node 24 with --experimental-test-isolation=none prints a failing root
   // `after` hook but still exits 0, so the run must be marked as failed here.
   process.exitCode = 1;
+  if (cause !== undefined) {
+    const startupError =
+      cause instanceof Error
+        ? cause
+        : new Error('Integration startup failed', { cause });
+    if (errors.length === 0) throw startupError;
+    throw new AggregateError(
+      [startupError, ...errors],
+      `${startupError.message}; integration cleanup failed`,
+    );
+  }
   throw new AggregateError(errors, 'Integration teardown failed');
 }
