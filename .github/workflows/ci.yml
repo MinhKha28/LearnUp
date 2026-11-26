@@ -143,7 +143,7 @@ jobs:
           # Learning integration suite: the service itself or its only library.
           learning_it=false
           if [ "$run_all" = true ] || touched '^services/learning-service/' \
-            || touched '^libraries/ts-common/' || touched '^\.nvmrc$' \
+            || touched '^libraries/ts-common/' \
             || [ "$topics_changed" = true ]; then learning_it=true; fi
 
           # Assessment also reads the Course seed and consumes both TS libraries.
@@ -151,7 +151,7 @@ jobs:
           if [ "$run_all" = true ] || touched '^services/assessment-service/' \
             || touched '^libraries/(ts-common|ts-storage)/' \
             || touched '^services/course-service/prisma/seed\.ts$' \
-            || touched '^\.nvmrc$' || [ "$topics_changed" = true ]; then assessment_it=true; fi
+            || [ "$topics_changed" = true ]; then assessment_it=true; fi
 
           kafka_topics=false
           if [ "$run_all" = true ] || [ "$topics_changed" = true ] \

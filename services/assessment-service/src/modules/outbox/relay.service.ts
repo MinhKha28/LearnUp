@@ -10,6 +10,7 @@ import type { Prisma } from 'generated/prisma/client';
 import { RELAY_CONFIG, type RelayConfig } from './relay.config';
 import { GateFailure, OutboxGate, type GateReadiness } from './relay.gate';
 import { RelayRepository, type RelayRow } from './relay.repository';
+import { classifyError } from './relay.kafka-gate';
 
 const BROKER_UNAVAILABLE_KEY = 'broker-unavailable';
 
@@ -76,7 +77,11 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
     if (this.stopped) return Promise.resolve();
     if (this.running) return this.running;
     this.running = this.run()
-      .catch(() => this.logger.error('OUTBOX_RELAY_FAILURE'))
+      .catch((error: unknown) =>
+        this.logger.error(
+          `OUTBOX_RELAY_FAILURE code=${classifyError(error).code}`,
+        ),
+      )
       .finally(() => {
         this.running = undefined;
       });
@@ -158,7 +163,9 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
             `${OUTBOX_TOPIC_MISSING} topic=${topic} hint="run kafka-init"`,
           );
       } else {
-        this.logger.warn('OUTBOX_GATE_UNAVAILABLE: the relay will retry');
+        this.logger.warn(
+          `OUTBOX_GATE_UNAVAILABLE: the relay will retry code=${readiness.code}`,
+        );
       }
       this.lastReadinessFailure = reason;
     }
@@ -176,6 +183,10 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
       readiness.status === 'missing-topics'
         ? `${OUTBOX_TOPIC_MISSING} topics=${readiness.topics.join(',')} hint="run kafka-init"`
         : 'OUTBOX_GATE_UNAVAILABLE';
+    const brokerCode =
+      readiness.status === 'broker-failure'
+        ? ` broker_code=${readiness.code}`
+        : '';
     const downSeconds = Math.round((now - this.gateDownSince) / 1000);
     try {
       const { count, oldestAt } = await this.repository.unsentSummary();
@@ -183,12 +194,12 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
         ? Math.round((now - oldestAt.getTime()) / 1000)
         : 0;
       this.logger.error(
-        `OUTBOX_RETRY_ALERT code=${diagnostic} down_for_s=${downSeconds} unsent=${count} oldest_unsent_age_s=${oldestSeconds}`,
+        `OUTBOX_RETRY_ALERT code=${diagnostic} down_for_s=${downSeconds} unsent=${count} oldest_unsent_age_s=${oldestSeconds}${brokerCode}`,
       );
     } catch {
       // The database is the other thing that can be down; the alert is still worth sending, without the numbers.
       this.logger.error(
-        `OUTBOX_RETRY_ALERT code=${diagnostic} down_for_s=${downSeconds} unsent=unknown`,
+        `OUTBOX_RETRY_ALERT code=${diagnostic} down_for_s=${downSeconds} unsent=unknown${brokerCode}`,
       );
     }
   }
