@@ -1,6 +1,65 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
-import { cleanupAll, finishCleanup } from '../integration/cleanup';
+import { mock, test, type TestContext } from 'node:test';
+import {
+  catchHookFailure,
+  cleanupAll,
+  finishCleanup,
+  reportHookFailure,
+} from '../integration/cleanup';
+
+// The hook bodies below ignore their context, so an empty one is enough.
+const UNUSED_CONTEXT = {} as TestContext;
+
+void test('a failing hook body hands its error over and does not reject', async () => {
+  const hookError = new Error('disconnect failed');
+  const received: unknown[] = [];
+  const hook = catchHookFailure(
+    () => Promise.reject(hookError),
+    (error) => received.push(error),
+  );
+  await hook(UNUSED_CONTEXT);
+  assert.deepEqual(received, [hookError]);
+});
+
+void test('a passing hook body reports nothing', async () => {
+  const received: unknown[] = [];
+  let ran = false;
+  const hook = catchHookFailure(
+    () => {
+      ran = true;
+    },
+    (error) => received.push(error),
+  );
+  await hook(UNUSED_CONTEXT);
+  assert.equal(ran, true);
+  assert.deepEqual(received, []);
+});
+
+// Node 24 runs test/unit/index.ts in one process and exits 0 after a failing
+// root `after` hook, so the reporter must set the exit code itself.
+void test('a reported hook failure is printed once and fails the run', () => {
+  const previousExitCode = process.exitCode;
+  const printError = mock.method(console, 'error', () => undefined);
+  const hookError = new Error('disconnect failed');
+  try {
+    process.exitCode = undefined;
+    reportHookFailure(
+      { file: __filename, hook: 'close stub server' },
+      hookError,
+    );
+    assert.equal(process.exitCode, 1);
+    assert.equal(printError.mock.callCount(), 1);
+    const [message, printed] = printError.mock.calls[0].arguments;
+    assert.match(
+      String(message),
+      /after hook "close stub server" failed in .*integration-cleanup\.unit-test\.ts/,
+    );
+    assert.equal(printed, hookError);
+  } finally {
+    printError.mock.restore();
+    process.exitCode = previousExitCode;
+  }
+});
 
 function failingCleanup() {
   return {

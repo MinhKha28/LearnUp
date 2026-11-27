@@ -2,7 +2,8 @@ import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { after, before, test } from 'node:test';
+import { before, test } from 'node:test';
+import { reportingAfter } from './root-after';
 import { Client } from 'pg';
 import { COURSE_STATUS } from '../src/modules/courses/course-values';
 
@@ -25,11 +26,14 @@ before(async () => {
   await client.query(`CREATE SCHEMA "${schema}"`);
   await client.query(`SET search_path TO "${schema}"`);
 });
-after(async () => {
-  await client.query('ROLLBACK');
-  await client.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
-  await client.end();
-});
+reportingAfter(
+  { file: __filename, hook: 'drop test schema and close client' },
+  async () => {
+    await client.query('ROLLBACK');
+    await client.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    await client.end();
+  },
+);
 async function reset() {
   await client.query('ROLLBACK');
   await client.query(`DROP SCHEMA "${schema}" CASCADE`);

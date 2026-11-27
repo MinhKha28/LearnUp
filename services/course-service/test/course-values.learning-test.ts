@@ -1,7 +1,8 @@
 import './learning-env';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
-import { after, before, test } from 'node:test';
+import { before, test } from 'node:test';
+import { reportingAfter } from './root-after';
 import { randomUUID } from 'node:crypto';
 import { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -82,13 +83,16 @@ before(async () => {
   await app.listen(0, '127.0.0.1');
   url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
 });
-after(async () => {
-  try {
-    if (app) await app.close();
-  } finally {
-    await Promise.all([db.end(), courseDb.end()]);
-  }
-});
+reportingAfter(
+  { file: __filename, hook: 'close app and database pools' },
+  async () => {
+    try {
+      if (app) await app.close();
+    } finally {
+      await Promise.all([db.end(), courseDb.end()]);
+    }
+  },
+);
 void test('UC24.2: new seed Private Course passes real I1 and creates a Required assignment', async () => {
   const seed = await courseDb.query(
     'SELECT status,course_type FROM courses WHERE id=$1 AND organization_id=$2',
