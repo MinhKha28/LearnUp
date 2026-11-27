@@ -156,7 +156,7 @@ test('persistent assessment errors honor backoff without a hot drain loop', asyn
   const workerLogger = (worker as unknown as { logger: Logger }).logger;
   const serviceLogger = (service as unknown as { logger: Logger }).logger;
   t.mock.method(workerLogger, 'log', () => undefined);
-  t.mock.method(serviceLogger, 'error', () => undefined);
+  const loggerError = t.mock.method(serviceLogger, 'error', () => undefined);
   try {
     worker.onModuleInit();
     for (
@@ -177,6 +177,11 @@ test('persistent assessment errors honor backoff without a hot drain loop', asyn
     assessmentCallTimes.length >= MIN_ASSESSMENT_CALLS,
     `assessment calls=${assessmentCallTimes.length}`,
   );
+  assert.equal(loggerError.mock.callCount(), assessmentCallTimes.length);
+  for (const call of loggerError.mock.calls) {
+    const payload = call.arguments[0] as { code: string };
+    assert.equal(payload.code, 'ASSESSMENT_UNAVAILABLE');
+  }
   // The fake queue holds the request back for RETRY_BACKOFF_MS, so a shorter gap
   // means the worker or service called assessment without a new claim
   // (for example, retrying the failed request in place).
