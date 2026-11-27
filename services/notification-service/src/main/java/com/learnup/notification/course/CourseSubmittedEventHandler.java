@@ -26,13 +26,13 @@ public class CourseSubmittedEventHandler {
     private static final Duration MAX_EVENT_AGE = Duration.ofHours(72);
 
     private final RestClient tenant;
-    private final CourseSubmissionDeliveryLedger ledger;
+    private final CourseDeliveryLedger ledger;
     private final NotificationService notifications;
     private final EmailDeliveryService emails;
 
     public CourseSubmittedEventHandler(
             @Qualifier("tenantRestClient") RestClient tenant,
-            CourseSubmissionDeliveryLedger ledger,
+            CourseDeliveryLedger ledger,
             NotificationService notifications,
             EmailDeliveryService emails) {
         this.tenant = tenant;
@@ -50,18 +50,21 @@ public class CourseSubmittedEventHandler {
         boolean retry = false;
 
         for (String channel : new String[] { "IN_APP", "EMAIL" }) {
-            boolean claimed = false;
+            CourseDeliveryLedger.Claim claim = null;
             try {
-                claimed = ledger.claim(event, organizer.id(), channel);
-                if (!claimed) continue;
+                claim = ledger.claim(CourseDeliveryTable.SUBMISSION, new CourseDeliveryLedger.Obligation(
+                        event.eventId(), event.organizationId(), event.courseId(), event.occurredAt(),
+                        organizer.id(), channel)).orElse(null);
+                if (claim == null) continue;
 
                 if ("IN_APP".equals(channel)) {
                     String metadata = "{\"courseId\":\"" + event.courseId() + "\"}";
-                    notifications.sendNotification(new CreateNotificationRequest(
+                    ledger.deliverInApp(claim, () -> notifications.sendNotification(new CreateNotificationRequest(
                             event.organizationId(), organizer.id(), "Khóa học đang chờ phê duyệt",
                             "Khóa học «" + event.courseName() + "» đã được gửi để phê duyệt.",
-                            "COURSE_APPROVAL", "IN_APP", metadata));
+                            "COURSE_APPROVAL", "IN_APP", metadata)));
                 } else {
+                    ledger.requireOwned(claim);
                     EmailLogResponse result = emails.sendEmail(new SendEmailRequest(
                             organizer.email(), "LearnUP - Khóa học đang chờ phê duyệt",
                             emailHtml(event), "COURSE_APPROVAL_SUBMITTED"));
@@ -71,12 +74,10 @@ public class CourseSubmittedEventHandler {
                     if ("SIMULATED".equals(result.getStatus())) {
                         log.warn("event=course_submission_email_simulated event_id={}", event.eventId());
                     }
+                    ledger.sent(claim);
                 }
-                ledger.sent(event.eventId(), organizer.id(), channel);
             } catch (RuntimeException failure) {
-                if (claimed) {
-                    ledger.failed(event.eventId(), organizer.id(), channel, channel + "_FAILED");
-                }
+                if (claim != null) ledger.failIfOwned(claim, channel + "_FAILED");
                 log.warn("event=course_submission_retry channel={} event_id={} error_type={}",
                         channel, event.eventId(), failure.getClass().getSimpleName());
                 retry = true;
