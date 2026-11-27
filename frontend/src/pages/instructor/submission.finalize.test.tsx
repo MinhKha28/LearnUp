@@ -282,7 +282,10 @@ describe("UC32.3 finalizing a score", () => {
     expect(await screen.findByText(/Không kết nối được với máy chủ/)).toBeTruthy();
     expect(score.value).toBe("71.01");
     expect(comment.value).toBe("  Lập luận tốt  ");
-    fireEvent.click((await openConfirmation("Thử lại")).getByRole("button", { name: "Công bố điểm" }));
+    const retryDialog = await openConfirmation("Thử lại");
+    // Wait for the previous request's loading icon to leave the button's accessible name.
+    const retryConfirm = await retryDialog.findByRole("button", { name: "Công bố điểm" });
+    fireEvent.click(retryConfirm);
     expect(publish).toHaveBeenCalledTimes(2);
     expect(publish).toHaveBeenLastCalledWith("sub-riley-park", {
       finalScore: 71.01,
