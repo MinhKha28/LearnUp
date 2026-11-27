@@ -3,18 +3,18 @@
  * and the alert of the retries never fires: the relay has to alert by itself, after the outage has lasted a while.
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, describe, test } from 'node:test';
 import { readRelayConfig } from '../../src/modules/outbox/relay.config';
 import {
   EmptyOutboxGate,
+  toGateFailure,
   type GateReadiness,
 } from '../../src/modules/outbox/relay.gate';
 import type { RelayRepository } from '../../src/modules/outbox/relay.repository';
 import { RelayService } from '../../src/modules/outbox/relay.service';
-import {
-  classifyError,
-  readinessFailure,
-} from '../../src/modules/outbox/relay.kafka-gate';
+import { readinessFailure } from '../../src/modules/outbox/relay.kafka-gate';
 
 const MINUTE = 60_000;
 const START = Date.parse('2026-11-05T08:00:00.000Z');
@@ -465,20 +465,17 @@ for (const [error, diagnostic] of [
   [new Error('private database details'), 'OUTBOX_UNKNOWN'],
 ] as const) {
   test(`logs classified unexpected tick failure ${diagnostic}`, async () => {
+    // ready() never rejects (it returns a readiness failure), so the failure comes from the claim transaction.
     let failing = true;
-    const gate = Object.assign(new EmptyOutboxGate(), {
-      ready: () =>
-        failing
-          ? Promise.reject(error)
-          : Promise.resolve({ status: 'ready' } as const),
-    });
     let claims = 0;
     const repository = {
       transaction: () => {
         claims++;
+        if (failing) return Promise.reject(error);
         return Promise.resolve();
       },
     };
+    const gate = new EmptyOutboxGate();
     const service = new RelayService(
       repository as unknown as RelayRepository,
       gate,
@@ -492,11 +489,21 @@ for (const [error, diagnostic] of [
     assert.deepEqual(errors, [`OUTBOX_RELAY_FAILURE code=${diagnostic}`]);
     failing = false;
     await service.tick();
-    assert.equal(claims, 1);
+    assert.equal(claims, 2);
+    assert.equal(errors.length, 1);
   });
 }
 
 test('classifies non-Error string and undefined inputs directly', () => {
-  assert.equal(classifyError('private broker details').code, 'OUTBOX_UNKNOWN');
-  assert.equal(classifyError(undefined).code, 'OUTBOX_UNKNOWN');
+  assert.equal(toGateFailure('private broker details').code, 'OUTBOX_UNKNOWN');
+  assert.equal(toGateFailure(undefined).code, 'OUTBOX_UNKNOWN');
+});
+
+test('the relay service reads error classification from the gate contract, not from the Kafka gate', () => {
+  const source = readFileSync(
+    join(__dirname, '../../src/modules/outbox/relay.service.ts'),
+    'utf8',
+  );
+  // Any mention (import, re-export, dynamic import, either quote style) counts.
+  assert.doesNotMatch(source, /relay\.kafka-gate/);
 });

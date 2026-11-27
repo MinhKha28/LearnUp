@@ -1,41 +1,22 @@
-import { isKafkaTopicMissing, OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
-import { Inject, Injectable } from '@nestjs/common';
-import { CODES, KafkaJS } from '@confluentinc/kafka-javascript';
+import { OUTBOX_TOPIC_MISSING, OUTBOX_UNKNOWN } from '@learnup/ts-common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { KafkaJS } from '@confluentinc/kafka-javascript';
 import {
   RELAY_CONFIG,
   topicOf,
   topicsOf,
   type RelayConfig,
 } from './relay.config';
-import { GateFailure, OutboxGate, type GateReadiness } from './relay.gate';
+import {
+  GateFailure,
+  OutboxGate,
+  toGateFailure,
+  type GateReadiness,
+} from './relay.gate';
 import type { RelayRow } from './relay.repository';
-
-const errors = CODES.ERRORS;
 
 /** How many probes in a row may fail before the clients are thrown away and made again. */
 const PROBES_BEFORE_NEW_CLIENTS = 3;
-
-/** Codes that say the message itself is the problem, not the broker. */
-const messageCodes = new Set<number>([
-  errors.ERR_MSG_SIZE_TOO_LARGE,
-  errors.ERR__KEY_SERIALIZATION,
-  errors.ERR__VALUE_SERIALIZATION,
-  errors.ERR_INVALID_MSG,
-  errors.ERR_INVALID_MSG_SIZE,
-]);
-
-/** What the failure is called in `last_error`: a fixed identifier, never the text of the error. */
-export function classifyError(error: unknown): GateFailure {
-  if (error instanceof GateFailure) return error;
-  const code =
-    typeof error === 'object' && error !== null && 'code' in error
-      ? error.code
-      : undefined;
-  if (isKafkaTopicMissing(code)) return new GateFailure(OUTBOX_TOPIC_MISSING);
-  if (typeof code === 'number' && Number.isInteger(code))
-    return new GateFailure(`KAFKA_${code}`, messageCodes.has(code));
-  return new GateFailure('OUTBOX_UNKNOWN');
-}
 
 /** Aggregate failures are missing-only only when every cause is missing. */
 export function readinessFailure(
@@ -44,14 +25,14 @@ export function readinessFailure(
 ): GateReadiness {
   if (error instanceof AggregateError) {
     if (error.errors.length === 0)
-      return { status: 'broker-failure', code: 'OUTBOX_UNKNOWN' };
+      return { status: 'broker-failure', code: OUTBOX_UNKNOWN };
     for (const cause of error.errors) {
       const result = readinessFailure(cause, topics);
       if (result.status === 'broker-failure') return result;
     }
     return { status: 'missing-topics', topics };
   }
-  const failure = classifyError(error);
+  const failure = toGateFailure(error);
   return failure.code === OUTBOX_TOPIC_MISSING
     ? { status: 'missing-topics', topics }
     : { status: 'broker-failure', code: failure.code };
@@ -89,11 +70,13 @@ export function message(row: RelayRow): { key: string; value: string } {
 /** Kafka behind the relay: idempotent producer, every replica must acknowledge, and the broker is probed before any lock. */
 @Injectable()
 export class KafkaOutboxGate extends OutboxGate {
-  private producer!: KafkaJS.Producer;
-  private admin!: KafkaJS.Admin;
+  /** Both are undefined only after a failed rebuild; the next ready() builds them again. */
+  private producer?: KafkaJS.Producer;
+  private admin?: KafkaJS.Admin;
   private connected = false;
   /** Counts the times the clients were replaced, so a probe that was left behind does not touch the new ones. */
   private generation = 0;
+  private readonly logger = new Logger(KafkaOutboxGate.name);
   private failedProbes = 0;
   /** The longest a probe may take: the first connection (idempotent producer included) is slower than a probe of a live one. */
   private readonly budgetMs: number;
@@ -101,9 +84,14 @@ export class KafkaOutboxGate extends OutboxGate {
   constructor(@Inject(RELAY_CONFIG) private readonly config: RelayConfig) {
     super();
     this.budgetMs = Math.max(config.probeMs * 5, config.deliveryMs);
+    // Built eagerly: the constructors open no connection, so the service still starts with Kafka down.
     this.createClients();
   }
 
+  /**
+   * Builds both clients or neither. A producer built before admin() throws is dropped:
+   * librdkafka opens no connection before connect(), so there is nothing to disconnect.
+   */
   private createClients(): void {
     const config = this.config;
     const kafka = new KafkaJS.Kafka({
@@ -116,7 +104,7 @@ export class KafkaOutboxGate extends OutboxGate {
         logLevel: KafkaJS.logLevel.NOTHING,
       },
     });
-    this.producer = kafka.producer({
+    const producer = kafka.producer({
       kafkaJS: {
         acks: -1,
         idempotent: true,
@@ -126,7 +114,32 @@ export class KafkaOutboxGate extends OutboxGate {
       },
       'delivery.timeout.ms': config.deliveryMs,
     });
-    this.admin = kafka.admin();
+    const admin = kafka.admin();
+    this.producer = producer;
+    this.admin = admin;
+  }
+
+  /**
+   * Returns undefined when the clients were built, otherwise the classified code of the throw.
+   * After a throw the fields stay empty, so the next ready() builds them again.
+   */
+  private buildClients(): string | undefined {
+    try {
+      this.createClients();
+      return undefined;
+    } catch (error) {
+      return toGateFailure(error).code;
+    }
+  }
+
+  private requireProducer(): KafkaJS.Producer {
+    if (!this.producer) throw new Error('Kafka producer is not built');
+    return this.producer;
+  }
+
+  private requireAdmin(): KafkaJS.Admin {
+    if (!this.admin) throw new Error('Kafka admin is not built');
+    return this.admin;
   }
 
   /**
@@ -135,6 +148,12 @@ export class KafkaOutboxGate extends OutboxGate {
    * clients are replaced after three consecutive broker failures; missing topics do not count.
    */
   async ready(): Promise<GateReadiness> {
+    if (!this.producer || !this.admin) {
+      // No probe can run without clients, so the build failure is the only code there is.
+      const buildFailureCode = this.buildClients();
+      if (buildFailureCode)
+        return { status: 'broker-failure', code: buildFailureCode };
+    }
     const generation = this.generation;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timedOut = new Promise<GateReadiness>((resolve) => {
@@ -151,43 +170,88 @@ export class KafkaOutboxGate extends OutboxGate {
     } else if (this.generation === generation) {
       // Missing topics do not damage clients; only broker failures count here.
       this.failedProbes += 1;
-      if (!this.connected || this.failedProbes >= PROBES_BEFORE_NEW_CLIENTS)
-        this.replaceClients();
+      if (!this.connected || this.failedProbes >= PROBES_BEFORE_NEW_CLIENTS) {
+        // The probe's code stays the reason; a failed rebuild is attached, not swapped in.
+        const rebuildCode = this.replaceClients();
+        if (rebuildCode) return { ...answered, rebuildCode };
+      }
     }
     return answered;
   }
 
-  private replaceClients(): void {
+  /** Disconnects the current clients, clears the fields and builds new ones; returns the classified code if the build throws. */
+  private replaceClients(): string | undefined {
     this.generation += 1;
     this.connected = false;
     this.failedProbes = 0;
-    void Promise.allSettled([
-      this.producer.disconnect(),
-      this.admin.disconnect(),
-    ]);
-    this.createClients();
+    const producer = this.producer;
+    const admin = this.admin;
+    this.producer = undefined;
+    this.admin = undefined;
+    void Promise.allSettled([producer?.disconnect(), admin?.disconnect()]);
+    return this.buildClients();
   }
 
-  /** A fresh metadata request, so a broker that went away is noticed before the relay locks any row. */
+  /** A stale probe owns only its captured clients, never the replacement pair. */
+  private async cleanupStaleProbe(
+    admin: KafkaJS.Admin,
+    producer: KafkaJS.Producer,
+  ): Promise<void> {
+    await Promise.all(
+      [admin, producer].map(async (client) => {
+        try {
+          await client.disconnect();
+        } catch (error) {
+          this.logger.warn(
+            `OUTBOX_STALE_PROBE_DISCONNECT code=${toGateFailure(error).code}`,
+          );
+        }
+      }),
+    );
+  }
+
+  /** A fresh metadata request before locking any row. */
   private async probe(generation: number): Promise<GateReadiness> {
+    const admin = this.requireAdmin();
+    const producer = this.requireProducer();
+    const stale: GateReadiness = {
+      status: 'broker-failure',
+      code: 'OUTBOX_STALE_PROBE',
+    };
     try {
       if (!this.connected) {
-        await this.admin.connect();
+        await admin.connect();
+        if (generation !== this.generation) {
+          await this.cleanupStaleProbe(admin, producer);
+          return stale;
+        }
         try {
-          await this.producer.connect();
+          await producer.connect();
         } catch (error) {
-          await this.admin.disconnect();
+          if (generation !== this.generation) {
+            await this.cleanupStaleProbe(admin, producer);
+            return stale;
+          }
+          await admin.disconnect();
+          if (generation !== this.generation) {
+            await this.cleanupStaleProbe(admin, producer);
+            return stale;
+          }
           throw error;
         }
-        if (generation !== this.generation)
-          return { status: 'broker-failure', code: 'OUTBOX_STALE_PROBE' };
+        if (generation !== this.generation) {
+          await this.cleanupStaleProbe(admin, producer);
+          return stale;
+        }
         this.connected = true;
       }
-      const existingTopics = await this.admin.listTopics({
+      const existingTopics = await admin.listTopics({
         timeout: this.config.probeMs,
       });
-      if (generation !== this.generation)
-        return { status: 'broker-failure', code: 'OUTBOX_STALE_PROBE' };
+      if (generation !== this.generation) {
+        await this.cleanupStaleProbe(admin, producer);
+        return stale;
+      }
       const missingTopics = topicsOf(this.config).filter(
         (topic) => !existingTopics.includes(topic),
       );
@@ -195,6 +259,10 @@ export class KafkaOutboxGate extends OutboxGate {
         ? { status: 'missing-topics', topics: missingTopics }
         : { status: 'ready' };
     } catch (error) {
+      if (generation !== this.generation) {
+        await this.cleanupStaleProbe(admin, producer);
+        return stale;
+      }
       return readinessFailure(error, topicsOf(this.config));
     }
   }
@@ -208,7 +276,7 @@ export class KafkaOutboxGate extends OutboxGate {
     }
     const started = Date.now();
     try {
-      await this.producer.sendBatch({
+      await this.requireProducer().sendBatch({
         topicMessages: [...byTopic].map(([topic, messages]) => ({
           topic,
           messages,
@@ -216,20 +284,21 @@ export class KafkaOutboxGate extends OutboxGate {
       });
     } catch (error) {
       // send() rejects on the first failure: let the other delivery reports of the batch arrive before the relay retries.
-      if (classifyError(error).individual) {
-        await this.producer.flush({
+      const failure = toGateFailure(error);
+      if (failure.individual) {
+        await this.requireProducer().flush({
           timeout: Math.max(1, this.config.deliveryMs - (Date.now() - started)),
         });
       }
-      throw classifyError(error);
+      throw failure;
     }
   }
 
   async close(): Promise<void> {
     if (this.connected) {
       await Promise.allSettled([
-        this.producer.disconnect(),
-        this.admin.disconnect(),
+        this.producer?.disconnect(),
+        this.admin?.disconnect(),
       ]);
       this.connected = false;
     }
