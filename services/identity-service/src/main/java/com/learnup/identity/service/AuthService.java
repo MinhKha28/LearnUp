@@ -6,6 +6,7 @@ import com.learnup.identity.domain.RefreshToken;
 import com.learnup.identity.domain.User;
 import com.learnup.identity.dto.*;
 import com.learnup.identity.dto.internal.SignInAccess;
+import com.learnup.identity.exception.PasswordChangeRejectedException;
 import com.learnup.identity.exception.RefreshTokenReusedException;
 import com.learnup.identity.exception.SignInDeniedException;
 import com.learnup.identity.repository.RefreshTokenRepository;
@@ -274,12 +275,12 @@ public class AuthService {
         }
 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw BusinessException.badRequest("New password and confirmation password do not match");
+            throw PasswordChangeRejectedException.confirmationMismatch();
         }
 
         // Passwords are stored trimmed, so compare the values that would actually be stored.
         if (request.getNewPassword().trim().equals(request.getCurrentPassword().trim())) {
-            throw BusinessException.badRequest("New password cannot be the same as the current password");
+            throw PasswordChangeRejectedException.sameAsCurrent();
         }
 
         // UC08: a stolen access token must not allow unlimited current-password guesses.
@@ -295,7 +296,7 @@ public class AuthService {
         if (!matchesStoredPassword(request.getCurrentPassword(), user.getPasswordHash())) {
             log.warn("Password change failed for user [{}]: invalid current password", userId);
             loginThrottleService.recordPasswordChangeFailure(userId);
-            throw BusinessException.badRequest("Current password is incorrect");
+            throw PasswordChangeRejectedException.currentIncorrect();
         }
         loginThrottleService.resetPasswordChange(userId);
 

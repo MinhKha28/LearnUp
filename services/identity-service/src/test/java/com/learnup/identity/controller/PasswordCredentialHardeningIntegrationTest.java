@@ -220,6 +220,7 @@ class PasswordCredentialHardeningIntegrationTest {
         for (int attempt = 0; attempt < 5; attempt++) {
             changePassword(user, "wrongCurrent" + attempt, NEW_PASSWORD)
                     .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("CURRENT_PASSWORD_INCORRECT"))
                     .andExpect(jsonPath("$.error.message").value("Current password is incorrect"));
         }
 
@@ -304,7 +305,38 @@ class PasswordCredentialHardeningIntegrationTest {
 
         changePassword(user, PASSWORD, "  " + PASSWORD + " ")
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("NEW_PASSWORD_SAME_AS_CURRENT"))
                 .andExpect(jsonPath("$.error.message").value("New password cannot be the same as the current password"));
+    }
+
+    @Test
+    @DisplayName("UC08: a mismatched confirmation has its own code and does not count toward the lock")
+    void mismatchedConfirmationIsRejectedWithoutCountingTowardTheLock() throws Exception {
+        User user = createUser("mismatch@learnup.test", PASSWORD, true);
+        String hashBefore = passwordHash(user);
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            changePassword(user, "wrongCurrent" + attempt, NEW_PASSWORD, "differentConfirm" + attempt)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("PASSWORD_CONFIRMATION_MISMATCH"))
+                    .andExpect(jsonPath("$.error.message").value("New password and confirmation password do not match"));
+        }
+
+        assertThat(passwordHash(user)).isEqualTo(hashBefore);
+        changePassword(user, PASSWORD, NEW_PASSWORD).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("UC07: a mismatched reset confirmation keeps the reset contract's BAD_REQUEST code")
+    void resetConfirmationMismatchKeepsItsCode() throws Exception {
+        User user = createUser("reset-mismatch@learnup.test", PASSWORD, true);
+        String token = issueResetToken(user);
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ResetPasswordRequest(token, NEW_PASSWORD, "otherPass456"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"));
     }
 
     @Test
@@ -398,10 +430,14 @@ class PasswordCredentialHardeningIntegrationTest {
     }
 
     private ResultActions changePassword(User user, String current, String next) throws Exception {
+        return changePassword(user, current, next, next);
+    }
+
+    private ResultActions changePassword(User user, String current, String next, String confirm) throws Exception {
         return mockMvc.perform(post("/api/v1/auth/change-password")
                 .with(asGateway(user))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new ChangePasswordRequest(current, next, next))));
+                .content(objectMapper.writeValueAsString(new ChangePasswordRequest(current, next, confirm))));
     }
 
     private ResultActions resetPassword(String token, String password) throws Exception {

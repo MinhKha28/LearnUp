@@ -28,6 +28,8 @@ import java.util.Set;
 @Profile("local-docs & !prod & !production & !docker & !staging")
 public class OpenApiConfig {
     public static final String BEARER_SCHEME = "bearerAuth";
+    static final String CHANGE_PASSWORD_REJECTED = "Invalid request (VALIDATION_ERROR or BAD_REQUEST) or the password change "
+            + "was rejected: PASSWORD_CONFIRMATION_MISMATCH, NEW_PASSWORD_SAME_AS_CURRENT or CURRENT_PASSWORD_INCORRECT";
 
     @Bean
     public OpenAPI identityOpenApi(@Value("${learnup.docs.gateway-url}") String gatewayUrl,
@@ -80,7 +82,9 @@ public class OpenApiConfig {
                 };
                 ApiResponses responses = operation.getResponses();
                 codes.forEach(code -> responses.addApiResponse(code, new io.swagger.v3.oas.models.responses.ApiResponse()
-                        .description(descriptions.get(code)).content(new Content().addMediaType("application/json",
+                        .description(action.equals("change-password") && code.equals("400")
+                                ? CHANGE_PASSWORD_REJECTED : descriptions.get(code))
+                        .content(new Content().addMediaType("application/json",
                                 new MediaType().schema(error.schema)))));
             }));
         };
