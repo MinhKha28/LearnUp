@@ -111,7 +111,11 @@ producer. Never copy or reuse DATABASE_URL as this value. The relay precondition
 refuses foreign unpublished events before cleanup or publication.
 
 The course integration CI job runs e2e plus relay, catalog duration, enrollment
-lock and migration-value database suites, each against PostgreSQL only.
+lock and migration-value database suites, each against PostgreSQL only. It creates
+and migrates a dedicated `course_relay_test` database in the same PostgreSQL
+service and sets OUTBOX_TEST_DATABASE_URL only for the relay step. E2e, catalog
+duration, enrollment lock and migration-value suites keep using the shared
+`course_e2e_test` database through DATABASE_URL.
 The catalog HTTP check needs a seeded running Course service and remains local.
 The real Course-to-Learning check remains a local integration
 check; it is separate from `test:e2e`.

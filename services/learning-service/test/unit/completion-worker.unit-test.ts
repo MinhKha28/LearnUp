@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import type { Logger } from '@nestjs/common';
 import { CompletionWorker } from '../../src/modules/course-completion/completion.worker';
 import { CompletionService } from '../../src/modules/course-completion/completion.service';
 import { CompletionRepository } from '../../src/modules/course-completion/completion.repository';
 import { readCompletionConfig } from '../../src/modules/course-completion/completion.config';
 import { CompletionClientError } from '../../src/infrastructure/clients/assessment/assessment-completion.client';
 
-test('full waves drain backlog in one tick, yielding without waiting a poll interval', async () => {
+test('full waves drain backlog in one tick, yielding without waiting a poll interval', async (t) => {
   const config = { ...readCompletionConfig(() => undefined), pollMs: 60000 };
   let pending = 12,
     calls = 0,
@@ -41,6 +42,8 @@ test('full waves drain backlog in one tick, yielding without waiting a poll inte
     service as unknown as CompletionService,
     config,
   );
+  const logger = (worker as unknown as { logger: Logger }).logger;
+  t.mock.method(logger, 'log', () => undefined);
   await worker.tick();
   assert.equal(pending, 0);
   assert.equal(calls, 3);
@@ -48,7 +51,7 @@ test('full waves drain backlog in one tick, yielding without waiting a poll inte
   assert.equal(yielded, true);
   await worker.beforeApplicationShutdown();
 });
-test('concurrency below batch claims only runnable slots, never queues leased work', async () => {
+test('concurrency below batch claims only runnable slots, never queues leased work', async (t) => {
   const config = {
     ...readCompletionConfig(() => undefined),
     batchSize: 5,
@@ -75,11 +78,14 @@ test('concurrency below batch claims only runnable slots, never queues leased wo
       active--;
     },
   };
-  await new CompletionWorker(
+  const worker = new CompletionWorker(
     repo as unknown as CompletionRepository,
     service as unknown as CompletionService,
     config,
-  ).tick();
+  );
+  const logger = (worker as unknown as { logger: Logger }).logger;
+  t.mock.method(logger, 'log', () => undefined);
+  await worker.tick();
   assert.equal(pending, 0);
   assert.equal(maximum, 2);
 });
@@ -147,6 +153,10 @@ test('persistent assessment errors honor backoff without a hot drain loop', asyn
     service,
     config,
   );
+  const workerLogger = (worker as unknown as { logger: Logger }).logger;
+  const serviceLogger = (service as unknown as { logger: Logger }).logger;
+  t.mock.method(workerLogger, 'log', () => undefined);
+  t.mock.method(serviceLogger, 'error', () => undefined);
   try {
     worker.onModuleInit();
     for (

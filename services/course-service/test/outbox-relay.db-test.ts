@@ -75,34 +75,22 @@ const rows = () =>
 before(async () => {
   await prisma.$connect();
 
-  // Match claimSql's predicates without taking row locks. Also refuse blocked
-  // or backed-off foreign events: later ticks could make them claimable.
-  const [foreign] = await prisma.$queryRaw<
-    { unpublishedRows: number; claimableRows: number }[]
-  >`
-    WITH pending_course_events AS (
-      SELECT id, aggregate_id, organization_id, next_attempt_at
-      FROM outbox_events
-      WHERE published_at IS NULL
-        AND aggregate_type = 'Course'
-    )
-    SELECT
-      COUNT(*)::int AS "unpublishedRows",
-      COUNT(*) FILTER (
-        WHERE (o.next_attempt_at IS NULL OR o.next_attempt_at <= now())
-          AND NOT EXISTS (
-            SELECT 1 FROM pending_course_events p
-            WHERE p.aggregate_id = o.aggregate_id AND p.id < o.id
-          )
-      )::int AS "claimableRows"
-    FROM pending_course_events o
-    WHERE o.organization_id IS DISTINCT FROM ${org}::uuid
-      OR NOT (o.id = ANY(${fixtureIds}::uuid[]))
+  // Refuse every foreign unpublished Course event, even when tick() would not
+  // claim it. Only this suite's fixture IDs in its organization are safe.
+  const [foreign] = await prisma.$queryRaw<{ unpublishedRows: number }[]>`
+    SELECT COUNT(*)::int AS "unpublishedRows"
+    FROM outbox_events o
+    WHERE o.published_at IS NULL
+      AND o.aggregate_type = 'Course'
+      AND (
+        o.organization_id IS DISTINCT FROM ${org}::uuid
+        OR NOT (o.id = ANY(${fixtureIds}::uuid[]))
+      )
   `;
 
   if (foreign.unpublishedRows > 0) {
     throw new Error(
-      `OUTBOX_TEST_DATABASE_URL has ${foreign.unpublishedRows} foreign unpublished Course rows (${foreign.claimableRows} currently claimable); it must point to a dedicated test database.`,
+      `OUTBOX_TEST_DATABASE_URL has ${foreign.unpublishedRows} unpublished Course outbox rows outside this test's fixture IDs and organization (NULL organization counts as foreign), counted regardless of event type; OUTBOX_TEST_DATABASE_URL must point to a dedicated test database.`,
     );
   }
 });
