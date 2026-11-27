@@ -13,7 +13,7 @@ The package entry point is [src/index.ts](src/index.ts). Its modules expose:
 | API | ApiResponse, ApiErrorResponse, PageResponse, createPageResponse, error helpers |
 | Auth | UserRole, USER_ROLES, parseUserRole and role validation |
 | Context | HEADER_NAMES, CurrentUser, RequestContext and context factories |
-| Events | EventEnvelope and createEventEnvelope |
+| Events | EventEnvelope, createEventEnvelope, and the outbox relay diagnostics OUTBOX_TOPIC_MISSING, isKafkaTopicMissing, OUTBOX_UNKNOWN and classifyKafkaRelayError |
 
 Import from the package entry point; package.json maps the ESM entry and declaration
 files to dist/. Do not import a consumer's guards, interceptors, controllers, Prisma
