@@ -98,6 +98,9 @@ const renderPage = (organizationId: string) =>
     </MemoryRouter>,
   );
 
+// CSS numbers are serialized to 6 significant digits.
+const storageWidthPrecision = 6;
+
 describe("UC44.1 Admin organization detail page", () => {
   it("shows the organization, its Subscription, usage, Organizer and suspensions in Vietnamese", async () => {
     vi.mocked(getAdminOrganizationDetailAPI).mockResolvedValue(ok(abc));
@@ -140,7 +143,9 @@ describe("UC44.1 Admin organization detail page", () => {
     expect(learnerCard.querySelector<HTMLElement>(".admin-usage-warning span")?.style.width).toBe(`${barWidth}%`);
     const storageCard = screen.getByText("Dung lượng lưu trữ").closest(".admin-metric") as HTMLElement;
     expect(within(storageCard).getByText("Dưới 1%")).toBeTruthy();
-    expect(storageCard.querySelector<HTMLElement>(".admin-usage span")?.style.width).toBe(`${subscriptionUsage({ used: 1_234_567, limit: 3_758_096_384, warning: false }).barWidth}%`);
+    const storageWidth = storageCard.querySelector<HTMLElement>(".admin-usage span")?.style.width;
+    expect(storageWidth).toMatch(/%$/);
+    expect(Number.parseFloat(storageWidth!)).toBeCloseTo(subscriptionUsage({ used: 1_234_567, limit: 3_758_096_384, warning: false }).barWidth, storageWidthPrecision);
   });
 
   it("shows an empty usage bar without values when used is null", async () => {
