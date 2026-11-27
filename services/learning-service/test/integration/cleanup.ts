@@ -1,3 +1,4 @@
+import { relative } from 'node:path';
 import {
   after as nodeAfter,
   type HookOptions,
@@ -11,20 +12,63 @@ export interface CleanupTask {
   run: () => unknown;
   timeoutMs?: number;
 }
+type HookWork = (context: TestContext | SuiteContext) => unknown;
+
+/** Where a reported hook lives: the test file (pass __filename) and what the hook does. */
+export interface HookLabel {
+  file: string;
+  hook: string;
+}
+
 const fileErrors: unknown[] = [];
 
-/** Keep later file hooks and the harness cleanup reachable after a hook fails. */
-export function after(
-  work: (context: TestContext | SuiteContext) => unknown,
-  options?: HookOptions,
-): void {
-  nodeAfter(async (context) => {
+/**
+ * Run the hook body and hand any error to onFailure instead of rethrowing it.
+ * node:test skips the remaining `after` hooks at the same level once one throws.
+ */
+export function catchHookFailure(
+  work: HookWork,
+  onFailure: (error: unknown) => void,
+): HookWork {
+  return async (context) => {
     try {
       await work(context);
     } catch (error) {
-      fileErrors.push(error);
+      onFailure(error);
     }
-  }, options);
+  };
+}
+
+/** Keep later file hooks and the harness cleanup reachable after a hook fails. */
+export function after(work: HookWork, options?: HookOptions): void {
+  nodeAfter(
+    catchHookFailure(work, (error) => fileErrors.push(error)),
+    options,
+  );
+}
+
+/** Print a failed hook once and mark the whole run as failed. */
+export function reportHookFailure(label: HookLabel, error: unknown): void {
+  const file = relative(process.cwd(), label.file);
+  console.error(`after hook "${label.hook}" failed in ${file}:`, error);
+  process.exitCode = 1;
+}
+
+/**
+ * Root-level `after` for runs without the integration harness, e.g. test/unit/index.ts.
+ * Node 24 runs those files in one process and then prints a failing root `after`
+ * hook but still exits 0, so the failure is reported here and the run fails.
+ * The error is not rethrown, so the later `after` hooks still run.
+ */
+export function reportingAfter(
+  label: HookLabel,
+  work: HookWork,
+  options?: HookOptions,
+): void {
+  nodeAfter(
+    catchHookFailure(work, (error) => reportHookFailure(label, error)),
+    options,
+  );
 }
 
 /** Dependencies close in order; every task gets its own attempt and deadline. */

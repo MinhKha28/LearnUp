@@ -10,7 +10,7 @@ import {
   ServerResponse,
 } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { before, beforeEach, describe, test } from 'node:test';
 import { ConsoleLogger, Logger } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
@@ -21,6 +21,7 @@ import {
   CourseServiceError,
   CourseServiceUnavailableError,
 } from '../../src/infrastructure/clients/course/course-service.errors';
+import { reportingAfter } from '../integration/cleanup';
 
 const INTERNAL_KEY = 'unit-test-internal-key';
 const ORG = '0199a000-0000-7000-8000-0a0000000001';
@@ -163,11 +164,14 @@ beforeEach(() => {
   requests = [];
 });
 
-after(async () => {
-  server.closeAllConnections();
-  await new Promise<void>((resolve) => server.close(() => resolve()));
-  Logger.overrideLogger(new ConsoleLogger());
-});
+reportingAfter(
+  { file: __filename, hook: 'close stub HTTP server' },
+  async () => {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    Logger.overrideLogger(new ConsoleLogger());
+  },
+);
 
 void describe('CourseServiceClient – I1 lock', () => {
   void test('thành công: trả LockedCourse đã đổi kiểu, chuyển tiếp đúng header và body', async () => {

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import assert from 'node:assert/strict';
-import { after, before, test } from 'node:test';
+import { before, test } from 'node:test';
+import { reportingAfter } from './root-after';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { InternalCoursesService } from '../src/modules/internal-courses/internal-courses.service';
@@ -65,14 +66,17 @@ before(async () => {
   await prisma.$executeRawUnsafe('ANALYZE courses');
 });
 
-after(async () => {
-  try {
-    await cleanup();
-    await prisma.$executeRawUnsafe('ANALYZE courses');
-  } finally {
-    await prisma.$disconnect();
-  }
-});
+reportingAfter(
+  { file: __filename, hook: 'clean fixtures and disconnect' },
+  async () => {
+    try {
+      await cleanup();
+      await prisma.$executeRawUnsafe('ANALYZE courses');
+    } finally {
+      await prisma.$disconnect();
+    }
+  },
+);
 
 test('20 concurrent first calls succeed and update locked_at exactly once', async () => {
   queries.length = 0;

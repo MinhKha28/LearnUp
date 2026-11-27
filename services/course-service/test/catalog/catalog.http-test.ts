@@ -8,7 +8,8 @@
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { after, before, describe, test } from 'node:test';
+import { before, describe, test } from 'node:test';
+import { reportingAfter } from '../root-after';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
 import type { CatalogPageDto } from '../../src/modules/catalog/dto/catalog-page.dto';
@@ -115,20 +116,23 @@ before(async () => {
   });
 });
 
-after(async () => {
-  try {
-    await fixturePrisma.$transaction(async (tx) => {
-      await tx.courseChain.deleteMany({
-        where: { id: FOREIGN_CHAIN, organizationId: FOREIGN_ORG },
+reportingAfter(
+  { file: __filename, hook: 'delete foreign fixtures and disconnect' },
+  async () => {
+    try {
+      await fixturePrisma.$transaction(async (tx) => {
+        await tx.courseChain.deleteMany({
+          where: { id: FOREIGN_CHAIN, organizationId: FOREIGN_ORG },
+        });
+        await tx.mediaFile.deleteMany({
+          where: { id: FOREIGN_FILE, organizationId: FOREIGN_ORG },
+        });
       });
-      await tx.mediaFile.deleteMany({
-        where: { id: FOREIGN_FILE, organizationId: FOREIGN_ORG },
-      });
-    });
-  } finally {
-    await fixturePrisma.$disconnect();
-  }
-});
+    } finally {
+      await fixturePrisma.$disconnect();
+    }
+  },
+);
 
 interface ApiBody<T> {
   statusCode: number;

@@ -7,7 +7,8 @@
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { after, before, describe, test } from 'node:test';
+import { before, describe, test } from 'node:test';
+import { reportingAfter } from '../root-after';
 import { ConsoleLogger, Logger } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
@@ -211,7 +212,7 @@ before(async () => {
   rowsBefore = await countRows();
 });
 
-after(async () => {
+reportingAfter({ file: __filename, hook: 'disconnect Prisma' }, async () => {
   await prisma.$disconnect();
 });
 
