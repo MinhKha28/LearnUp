@@ -397,23 +397,24 @@ jobs:
         id: migrate
         run: npx prisma migrate deploy --config prisma7.config.ts
 
-      - name: Create relay database
-        run: docker exec "${{ job.services.postgres.id }}" createdb -U postgres course_relay_test
-
       - name: Migrate relay database
         id: migrate_relay
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/course_relay_test
         run: npx prisma migrate deploy --config prisma7.config.ts
 
-      - name: HTTP integration tests
-        run: npm run test:e2e -- --runInBand
-
       - name: Outbox relay database tests
+        id: relay
         if: ${{ !cancelled() && steps.migrate.outcome == 'success' && steps.migrate_relay.outcome == 'success' }}
         env:
           OUTBOX_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/course_relay_test
         run: npm run test:relay:db
+
+      - name: HTTP integration tests
+        id: e2e
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
+        run: npm run test:e2e -- --runInBand
 
       - name: Catalog duration database tests
         if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
