@@ -8,13 +8,25 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from 'generated/prisma/client';
 import { RELAY_CONFIG, type RelayConfig } from './relay.config';
-import { GateFailure, OutboxGate, type GateReadiness } from './relay.gate';
+import {
+  GateFailure,
+  OutboxGate,
+  toGateFailure,
+  type GateReadiness,
+} from './relay.gate';
 import { RelayRepository, type RelayRow } from './relay.repository';
-import { classifyError } from './relay.kafka-gate';
 
 const BROKER_UNAVAILABLE_KEY = 'broker-unavailable';
 
 const CLEANUP_EVERY_MS = 60 * 60 * 1000;
+
+/** ` rebuild_code=<code>` when rebuilding the clients failed after the probe; empty otherwise, so the line stays as before. */
+function rebuildCodeToken(
+  readiness: Extract<GateReadiness, { status: 'broker-failure' }>,
+): string {
+  if (!readiness.rebuildCode) return '';
+  return ` rebuild_code=${readiness.rebuildCode}`;
+}
 
 /**
  * Publishes the outbox events of assessment-service: every second it claims up to a batch of the events not sent yet,
@@ -79,7 +91,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
     this.running = this.run()
       .catch((error: unknown) =>
         this.logger.error(
-          `OUTBOX_RELAY_FAILURE code=${classifyError(error).code}`,
+          `OUTBOX_RELAY_FAILURE code=${toGateFailure(error).code}`,
         ),
       )
       .finally(() => {
@@ -164,7 +176,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
           );
       } else {
         this.logger.warn(
-          `OUTBOX_GATE_UNAVAILABLE: the relay will retry code=${readiness.code}`,
+          `OUTBOX_GATE_UNAVAILABLE: the relay will retry code=${readiness.code}${rebuildCodeToken(readiness)}`,
         );
       }
       this.lastReadinessFailure = reason;
@@ -185,7 +197,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
         : 'OUTBOX_GATE_UNAVAILABLE';
     const brokerCode =
       readiness.status === 'broker-failure'
-        ? ` broker_code=${readiness.code}`
+        ? ` broker_code=${readiness.code}${rebuildCodeToken(readiness)}`
         : '';
     const downSeconds = Math.round((now - this.gateDownSince) / 1000);
     try {

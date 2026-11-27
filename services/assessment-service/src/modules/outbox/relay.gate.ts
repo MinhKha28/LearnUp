@@ -1,10 +1,15 @@
+import { classifyKafkaRelayError } from '@learnup/ts-common';
 import { Injectable } from '@nestjs/common';
 import type { RelayRow } from './relay.repository';
 
+/**
+ * `code` is why the probe failed. `rebuildCode` is set only when the clients were then rebuilt
+ * and that rebuild failed too; it never replaces `code`.
+ */
 export type GateReadiness =
   | { status: 'ready' }
   | { status: 'missing-topics'; topics: string[] }
-  | { status: 'broker-failure'; code: string };
+  | { status: 'broker-failure'; code: string; rebuildCode?: string };
 
 /**
  * Why a send failed, as the relay needs to know it. `code` is a fixed identifier kept in `last_error` (never a message or
@@ -19,6 +24,13 @@ export class GateFailure extends Error {
   ) {
     super(code);
   }
+}
+
+/** What the failure is called in `last_error`: a fixed identifier, never the text of the error. A named failure passes through as it is. */
+export function toGateFailure(error: unknown): GateFailure {
+  if (error instanceof GateFailure) return error;
+  const { code, individual } = classifyKafkaRelayError(error);
+  return new GateFailure(code, individual);
 }
 
 /**

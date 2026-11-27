@@ -13,9 +13,18 @@ import { RelayRepository } from './relay.repository';
 
 import type { RelayConfig } from './interfaces/relay-config.interface';
 import type { OutboxRow } from './interfaces/outbox-row.interface';
+import type { RelayReadiness } from './interfaces/relay-error.interface';
 import type { Prisma } from '../../../generated/prisma/client';
 
 const BROKER_UNAVAILABLE_KEY = 'broker-unavailable';
+
+/** ` rebuild_code=<code>` when rebuilding the clients failed after the probe; empty otherwise, so the line stays as before. */
+function rebuildCodeToken(
+  readiness: Extract<RelayReadiness, { status: 'broker-failure' }>,
+): string {
+  if (!readiness.rebuildCode) return '';
+  return ` rebuild_code=${readiness.rebuildCode}`;
+}
 
 @Injectable()
 export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
@@ -94,7 +103,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
             );
         } else {
           this.logger.warn(
-            `OUTBOX_BROKER_UNAVAILABLE: will retry code=${ready.code}`,
+            `OUTBOX_BROKER_UNAVAILABLE: will retry code=${ready.code}${rebuildCodeToken(ready)}`,
           );
         }
       }
