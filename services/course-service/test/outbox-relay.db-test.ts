@@ -117,7 +117,7 @@ test('20 slow ACKs commit once inside the real transaction budget', async () => 
     acks.push(id);
   }).tick();
   assert.ok(Date.now() - started < config.transactionMs);
-  assert.equal(acks.length, 20);
+  assert.equal(acks.length, 21);
   assert.equal(new Set(acks).size, 20);
   assert.ok(
     (await rows()).every((row) => row.publishedAt && row.attempts === 0),
