@@ -1,5 +1,5 @@
 import { OUTBOX_TOPIC_MISSING, OUTBOX_UNKNOWN } from '@learnup/ts-common';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { KafkaJS } from '@confluentinc/kafka-javascript';
 import {
   RELAY_CONFIG,
@@ -76,6 +76,7 @@ export class KafkaOutboxGate extends OutboxGate {
   private connected = false;
   /** Counts the times the clients were replaced, so a probe that was left behind does not touch the new ones. */
   private generation = 0;
+  private readonly logger = new Logger(KafkaOutboxGate.name);
   private failedProbes = 0;
   /** The longest a probe may take: the first connection (idempotent producer included) is slower than a probe of a live one. */
   private readonly budgetMs: number;
@@ -191,29 +192,66 @@ export class KafkaOutboxGate extends OutboxGate {
     return this.buildClients();
   }
 
-  /** A fresh metadata request, so a broker that went away is noticed before the relay locks any row. */
+  /** A stale probe owns only its captured clients, never the replacement pair. */
+  private async cleanupStaleProbe(
+    admin: KafkaJS.Admin,
+    producer: KafkaJS.Producer,
+  ): Promise<void> {
+    await Promise.all(
+      [admin, producer].map(async (client) => {
+        try {
+          await client.disconnect();
+        } catch (error) {
+          this.logger.warn(
+            `OUTBOX_STALE_PROBE_DISCONNECT code=${toGateFailure(error).code}`,
+          );
+        }
+      }),
+    );
+  }
+
+  /** A fresh metadata request before locking any row. */
   private async probe(generation: number): Promise<GateReadiness> {
+    const admin = this.requireAdmin();
+    const producer = this.requireProducer();
+    const stale: GateReadiness = {
+      status: 'broker-failure',
+      code: 'OUTBOX_STALE_PROBE',
+    };
     try {
-      // The clients of this probe's generation; a replacement during the probe does not swap them.
-      const admin = this.requireAdmin();
-      const producer = this.requireProducer();
       if (!this.connected) {
         await admin.connect();
+        if (generation !== this.generation) {
+          await this.cleanupStaleProbe(admin, producer);
+          return stale;
+        }
         try {
           await producer.connect();
         } catch (error) {
+          if (generation !== this.generation) {
+            await this.cleanupStaleProbe(admin, producer);
+            return stale;
+          }
           await admin.disconnect();
+          if (generation !== this.generation) {
+            await this.cleanupStaleProbe(admin, producer);
+            return stale;
+          }
           throw error;
         }
-        if (generation !== this.generation)
-          return { status: 'broker-failure', code: 'OUTBOX_STALE_PROBE' };
+        if (generation !== this.generation) {
+          await this.cleanupStaleProbe(admin, producer);
+          return stale;
+        }
         this.connected = true;
       }
       const existingTopics = await admin.listTopics({
         timeout: this.config.probeMs,
       });
-      if (generation !== this.generation)
-        return { status: 'broker-failure', code: 'OUTBOX_STALE_PROBE' };
+      if (generation !== this.generation) {
+        await this.cleanupStaleProbe(admin, producer);
+        return stale;
+      }
       const missingTopics = topicsOf(this.config).filter(
         (topic) => !existingTopics.includes(topic),
       );
@@ -221,6 +259,10 @@ export class KafkaOutboxGate extends OutboxGate {
         ? { status: 'missing-topics', topics: missingTopics }
         : { status: 'ready' };
     } catch (error) {
+      if (generation !== this.generation) {
+        await this.cleanupStaleProbe(admin, producer);
+        return stale;
+      }
       return readinessFailure(error, topicsOf(this.config));
     }
   }

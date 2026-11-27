@@ -652,3 +652,95 @@ test('a successful rebuild after a failed probe logs exactly the probe failure l
   ]);
   assert.equal(relay.claims(), 0);
 });
+
+for (const stage of [
+  'admin',
+  'producer',
+  'metadata',
+  'admin-disconnect',
+] as const) {
+  test(`stale probe during ${stage} disconnects dropped clients`, async (t) => {
+    const config = readRelayConfig(() => undefined);
+    const first = {
+      producer: fakeKafkaClient(config),
+      admin: fakeKafkaClient(config),
+    };
+    const second = {
+      producer: fakeKafkaClient(config),
+      admin: fakeKafkaClient(config),
+    };
+    planGateBuilds(t, [first, second]);
+    const gate = new KafkaOutboxGate(config);
+    const internal = gate as unknown as {
+      probe(generation: number): Promise<unknown>;
+      replaceClients(): void;
+    };
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let entered!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let oldConnected = false;
+    t.mock.method(first.producer, 'disconnect', () => {
+      first.producer.disconnects++;
+      oldConnected = false;
+      return Promise.resolve();
+    });
+    t.mock.method(first.producer, 'connect', async () => {
+      first.producer.connects++;
+      if (stage === 'producer') {
+        entered();
+        await held;
+      }
+      if (stage === 'admin-disconnect')
+        throw Object.assign(new Error('connect failed'), { code: -195 });
+      oldConnected = true;
+    });
+    if (stage === 'admin-disconnect') {
+      t.mock.method(first.admin, 'disconnect', async () => {
+        first.admin.disconnects++;
+        if (first.admin.disconnects === 1) {
+          entered();
+          await held;
+        }
+      });
+    } else if (stage === 'admin') {
+      t.mock.method(first.admin, 'connect', async () => {
+        entered();
+        await held;
+      });
+    } else if (stage === 'metadata') {
+      t.mock.method(first.admin, 'listTopics', async () => {
+        entered();
+        await held;
+        return [
+          config.topic,
+          config.peerReviewTopic,
+          config.submissionFinalizedTopic,
+        ];
+      });
+    }
+    const pending = internal.probe(0);
+    await started;
+    internal.replaceClients();
+    release();
+    assert.deepEqual(await pending, {
+      status: 'broker-failure',
+      code: 'OUTBOX_STALE_PROBE',
+    });
+    await gate.close();
+    assert.equal(
+      oldConnected,
+      false,
+      'the dropped producer must not remain connected',
+    );
+    assert.ok(
+      first.admin.disconnects >= 2,
+      'old admin needs cleanup after the pending operation',
+    );
+    assert.equal(second.producer.connects, 0);
+  });
+}
