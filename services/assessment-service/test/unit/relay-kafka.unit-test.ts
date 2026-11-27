@@ -699,20 +699,24 @@ for (const stage of [
         throw Object.assign(new Error('connect failed'), { code: -195 });
       oldConnected = true;
     });
-    if (stage === 'admin-disconnect') {
-      t.mock.method(first.admin, 'disconnect', async () => {
-        first.admin.disconnects++;
-        if (first.admin.disconnects === 1) {
-          entered();
-          await held;
-        }
-      });
-    } else if (stage === 'admin') {
-      t.mock.method(first.admin, 'connect', async () => {
+    let oldAdminConnected = false;
+    t.mock.method(first.admin, 'connect', async () => {
+      first.admin.connects++;
+      if (stage === 'admin') {
         entered();
         await held;
-      });
-    } else if (stage === 'metadata') {
+      }
+      oldAdminConnected = true;
+    });
+    t.mock.method(first.admin, 'disconnect', async () => {
+      first.admin.disconnects++;
+      if (stage === 'admin-disconnect' && first.admin.disconnects === 1) {
+        entered();
+        await held;
+      }
+      oldAdminConnected = false;
+    });
+    if (stage === 'metadata') {
       t.mock.method(first.admin, 'listTopics', async () => {
         entered();
         await held;
@@ -737,10 +741,18 @@ for (const stage of [
       false,
       'the dropped producer must not remain connected',
     );
+    assert.equal(
+      oldAdminConnected,
+      false,
+      'the dropped admin must not remain connected',
+    );
     assert.ok(
       first.admin.disconnects >= 2,
       'old admin needs cleanup after the pending operation',
     );
     assert.equal(second.producer.connects, 0);
+    assert.equal(second.producer.disconnects, 0);
+    assert.equal(second.admin.connects, 0);
+    assert.equal(second.admin.disconnects, 0);
   });
 }
