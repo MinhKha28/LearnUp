@@ -6,7 +6,7 @@ import { vi } from "vitest";
 // jsdom exposes transition properties but never dispatches animation completion events.
 vi.mock("rc-motion/lib/util/motion", async (importOriginal) => {
   const actual = await importOriginal<typeof import("rc-motion/lib/util/motion") & {
-    default: typeof import("rc-motion/lib/util/motion");
+    default: { supportTransition: boolean };
   }>();
   // Ant Design's CommonJS dependencies share this export object through require().
   actual.default.supportTransition = false;

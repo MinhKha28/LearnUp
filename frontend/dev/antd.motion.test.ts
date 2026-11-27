@@ -1,4 +1,5 @@
 // @vitest-environment jsdom-native
+/// <reference lib="dom" />
 import { createElement } from "react";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { Modal, message } from "antd";
