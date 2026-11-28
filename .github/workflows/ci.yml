@@ -331,6 +331,9 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
+          cache-dependency-path: |
+            ${{ matrix.dir }}/pom.xml
+            libraries/java-common/pom.xml
 
       - name: Install java-common
         if: matrix.needs_common
