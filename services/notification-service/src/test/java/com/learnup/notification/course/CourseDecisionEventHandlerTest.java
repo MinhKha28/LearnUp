@@ -17,6 +17,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.learnup.notification.course.CourseLedgerMocks.claim;
+import static com.learnup.notification.course.CourseLedgerMocks.claims;
+import static com.learnup.notification.course.CourseLedgerMocks.obligation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,7 +35,7 @@ class CourseDecisionEventHandlerTest {
     private static final UUID COURSE = UUID.fromString("019a0000-0000-7000-8000-000000000001");
     private static final UUID INSTRUCTOR = UUID.fromString("019a0000-0000-7000-8000-000000000003");
 
-    private final CourseSubmissionDeliveryLedger ledger = mock(CourseSubmissionDeliveryLedger.class);
+    private final CourseDeliveryLedger ledger = CourseLedgerMocks.ledger();
     private final NotificationService notifications = mock(NotificationService.class);
     private final RecipientDirectory directory = mock(RecipientDirectory.class);
     private final EmailDeliveryService emails = mock(EmailDeliveryService.class);
@@ -59,18 +62,18 @@ class CourseDecisionEventHandlerTest {
     }
 
     private CreateNotificationRequest delivered(CourseDecisionEvent event) {
-        when(ledger.claim(eq(event), eq(INSTRUCTOR), eq("IN_APP"))).thenReturn(true);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), INSTRUCTOR, "IN_APP", true);
         handler.handle(event);
         ArgumentCaptor<CreateNotificationRequest> sent = ArgumentCaptor.forClass(CreateNotificationRequest.class);
         verify(notifications).sendNotification(sent.capture());
-        verify(ledger).sent(event.eventId(), INSTRUCTOR, "IN_APP");
+        verify(ledger).deliverInApp(eq(claim(CourseDeliveryTable.SUBMISSION, "IN_APP")), any());
         return sent.getValue();
     }
 
     /** Both channels are open for this event and the Instructor can be written to. */
     private void bothChannelsOpen(CourseDecisionEvent event, Recipient recipient) {
-        when(ledger.claim(eq(event), eq(INSTRUCTOR), eq("IN_APP"))).thenReturn(true);
-        when(ledger.claim(eq(event), eq(INSTRUCTOR), eq("EMAIL"))).thenReturn(true);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), INSTRUCTOR, "IN_APP", true);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), INSTRUCTOR, "EMAIL", true);
         when(directory.find(ORG, INSTRUCTOR)).thenReturn(Optional.of(recipient));
         when(emails.sendEmail(any(SendEmailRequest.class))).thenReturn(mail("SENT"));
     }
@@ -111,7 +114,7 @@ class CourseDecisionEventHandlerTest {
     @Test
     void aRedeliveredDecisionIsNotRepeated() {
         CourseDecisionEvent event = decision(true, Instant.now());
-        when(ledger.claim(eq(event), eq(INSTRUCTOR), eq("IN_APP"))).thenReturn(false);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), INSTRUCTOR, "IN_APP", false);
         handler.handle(event);
         verifyNoInteractions(notifications);
     }
@@ -119,12 +122,12 @@ class CourseDecisionEventHandlerTest {
     @Test
     void aFailedDeliveryIsMarkedAndRetried() {
         CourseDecisionEvent event = decision(false, Instant.now());
-        when(ledger.claim(eq(event), eq(INSTRUCTOR), eq("IN_APP"))).thenReturn(true);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), INSTRUCTOR, "IN_APP", true);
         when(notifications.sendNotification(any())).thenThrow(new IllegalStateException("db down"));
 
         assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(DependencyUnavailableException.class);
-        verify(ledger).failed(event.eventId(), INSTRUCTOR, "IN_APP", "IN_APP_FAILED");
-        verify(ledger, never()).sent(any(), any(), any());
+        verify(ledger).failIfOwned(claim(CourseDeliveryTable.SUBMISSION, "IN_APP"), "IN_APP_FAILED");
+        verify(ledger, never()).sent(any());
     }
 
     @Test
@@ -151,8 +154,8 @@ class CourseDecisionEventHandlerTest {
                 .contains("«Workplace Safety»").contains("phiên bản 2")
                 .contains("Please revise the Assignment rubric.")
                 .contains("gửi duyệt lại");
-        verify(ledger).sent(event.eventId(), INSTRUCTOR, "EMAIL");
-        verify(ledger).sent(event.eventId(), INSTRUCTOR, "IN_APP");
+        verify(ledger).sent(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"));
+        verify(ledger).deliverInApp(eq(claim(CourseDeliveryTable.SUBMISSION, "IN_APP")), any());
     }
 
     @Test
@@ -209,14 +212,14 @@ class CourseDecisionEventHandlerTest {
 
         handler.handle(event);
 
-        verify(ledger).sent(event.eventId(), INSTRUCTOR, "EMAIL");
+        verify(ledger).sent(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"));
     }
 
     @Test
     void anEmailAlreadySentIsNotSentAgainWhenTheEventIsRedelivered() {
         CourseDecisionEvent event = decision(true, Instant.now());
-        when(ledger.claim(eq(event), eq(INSTRUCTOR), eq("IN_APP"))).thenReturn(false);
-        when(ledger.claim(eq(event), eq(INSTRUCTOR), eq("EMAIL"))).thenReturn(false);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), INSTRUCTOR, "IN_APP", false);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), INSTRUCTOR, "EMAIL", false);
 
         handler.handle(event);
 
@@ -228,20 +231,21 @@ class CourseDecisionEventHandlerTest {
         for (Recipient recipient : new Recipient[] {
                 instructor("Deleted", "minh@abc.vn"), instructor("Deactivated", "minh@abc.vn"),
                 instructor("Active", null), instructor("Active", "  ") }) {
-            CourseSubmissionDeliveryLedger freshLedger = mock(CourseSubmissionDeliveryLedger.class);
+            CourseDeliveryLedger freshLedger = CourseLedgerMocks.ledger();
             NotificationService freshNotifications = mock(NotificationService.class);
             RecipientDirectory freshDirectory = mock(RecipientDirectory.class);
             EmailDeliveryService freshEmails = mock(EmailDeliveryService.class);
             CourseDecisionEvent event = decision(true, Instant.now());
-            when(freshLedger.claim(eq(event), eq(INSTRUCTOR), any())).thenReturn(true);
+            claims(freshLedger, CourseDeliveryTable.SUBMISSION, event.eventId(), INSTRUCTOR, "IN_APP", true);
+            claims(freshLedger, CourseDeliveryTable.SUBMISSION, event.eventId(), INSTRUCTOR, "EMAIL", true);
             when(freshDirectory.find(ORG, INSTRUCTOR)).thenReturn(Optional.of(recipient));
 
             new CourseDecisionEventHandler(freshLedger, freshNotifications, freshDirectory, freshEmails)
                     .handle(event);
 
             verifyNoInteractions(freshEmails);
-            verify(freshLedger).skipped(event.eventId(), INSTRUCTOR, "EMAIL");
-            verify(freshLedger).sent(event.eventId(), INSTRUCTOR, "IN_APP");
+            verify(freshLedger).skipped(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"));
+            verify(freshLedger).deliverInApp(eq(claim(CourseDeliveryTable.SUBMISSION, "IN_APP")), any());
         }
     }
 
@@ -254,7 +258,7 @@ class CourseDecisionEventHandlerTest {
         handler.handle(event);
 
         verifyNoInteractions(emails);
-        verify(ledger).skipped(event.eventId(), INSTRUCTOR, "EMAIL");
+        verify(ledger).skipped(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"));
     }
 
     @Test
@@ -265,9 +269,9 @@ class CourseDecisionEventHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(DependencyUnavailableException.class);
 
-        verify(ledger).sent(event.eventId(), INSTRUCTOR, "IN_APP");
-        verify(ledger).failed(event.eventId(), INSTRUCTOR, "EMAIL", "EMAIL_FAILED");
-        verify(ledger, never()).sent(event.eventId(), INSTRUCTOR, "EMAIL");
+        verify(ledger).deliverInApp(eq(claim(CourseDeliveryTable.SUBMISSION, "IN_APP")), any());
+        verify(ledger).failIfOwned(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"), "EMAIL_FAILED");
+        verify(ledger, never()).sent(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"));
     }
 
     @Test
@@ -278,8 +282,8 @@ class CourseDecisionEventHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(DependencyUnavailableException.class);
 
-        verify(ledger).failed(event.eventId(), INSTRUCTOR, "IN_APP", "IN_APP_FAILED");
-        verify(ledger).sent(event.eventId(), INSTRUCTOR, "EMAIL");
+        verify(ledger).failIfOwned(claim(CourseDeliveryTable.SUBMISSION, "IN_APP"), "IN_APP_FAILED");
+        verify(ledger).sent(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"));
     }
 
     @Test
@@ -290,8 +294,8 @@ class CourseDecisionEventHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(DependencyUnavailableException.class);
 
-        verify(ledger).sent(event.eventId(), INSTRUCTOR, "IN_APP");
-        verify(ledger).failed(event.eventId(), INSTRUCTOR, "EMAIL", "EMAIL_FAILED");
+        verify(ledger).deliverInApp(eq(claim(CourseDeliveryTable.SUBMISSION, "IN_APP")), any());
+        verify(ledger).failIfOwned(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"), "EMAIL_FAILED");
         verifyNoInteractions(emails);
     }
 
@@ -303,8 +307,8 @@ class CourseDecisionEventHandlerTest {
 
         handler.handle(event); // no exception: the event is not redelivered for something retrying cannot fix
 
-        verify(ledger).sent(event.eventId(), INSTRUCTOR, "IN_APP");
-        verify(ledger).failed(event.eventId(), INSTRUCTOR, "EMAIL", "TENANT_REJECTED");
+        verify(ledger).deliverInApp(eq(claim(CourseDeliveryTable.SUBMISSION, "IN_APP")), any());
+        verify(ledger).failIfOwned(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"), "TENANT_REJECTED");
         verifyNoInteractions(emails);
     }
 

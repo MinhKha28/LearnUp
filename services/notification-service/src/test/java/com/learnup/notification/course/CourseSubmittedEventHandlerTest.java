@@ -14,6 +14,9 @@ import org.springframework.web.client.RestClient;
 import java.time.Instant;
 import java.util.UUID;
 
+import static com.learnup.notification.course.CourseLedgerMocks.claim;
+import static com.learnup.notification.course.CourseLedgerMocks.claims;
+import static com.learnup.notification.course.CourseLedgerMocks.obligation;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -26,7 +29,7 @@ class CourseSubmittedEventHandlerTest {
     private static final UUID COURSE = UUID.fromString("019a0000-0000-7000-8000-000000000003");
     private static final UUID ORGANIZER = UUID.fromString("019a0000-0000-7000-8000-000000000004");
 
-    private final CourseSubmissionDeliveryLedger ledger = mock(CourseSubmissionDeliveryLedger.class);
+    private final CourseDeliveryLedger ledger = CourseLedgerMocks.ledger();
     private final NotificationService notifications = mock(NotificationService.class);
     private final EmailDeliveryService emails = mock(EmailDeliveryService.class);
 
@@ -57,15 +60,16 @@ class CourseSubmittedEventHandlerTest {
                 .andRespond(withSuccess("""
                     {"data":{"id":"%s","email":"organizer@example.com"}}
                     """.formatted(ORGANIZER), MediaType.APPLICATION_JSON));
-        when(ledger.claim(eq(event), eq(ORGANIZER), any())).thenReturn(true);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), ORGANIZER, "IN_APP", true);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), ORGANIZER, "EMAIL", true);
         when(emails.sendEmail(any())).thenReturn(sent());
 
         handler.handle(event);
 
         verify(notifications).sendNotification(any(CreateNotificationRequest.class));
         verify(emails).sendEmail(any(SendEmailRequest.class));
-        verify(ledger).sent(event.eventId(), ORGANIZER, "IN_APP");
-        verify(ledger).sent(event.eventId(), ORGANIZER, "EMAIL");
+        verify(ledger).deliverInApp(eq(claim(CourseDeliveryTable.SUBMISSION, "IN_APP")), any());
+        verify(ledger).sent(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"));
         servers[0].verify();
     }
 
@@ -81,8 +85,8 @@ class CourseSubmittedEventHandlerTest {
                         {"data":{"id":"%s","email":"organizer@example.com"}}
                         """.formatted(ORGANIZER), MediaType.APPLICATION_JSON));
         }
-        when(ledger.claim(event, ORGANIZER, "IN_APP")).thenReturn(true, false);
-        when(ledger.claim(event, ORGANIZER, "EMAIL")).thenReturn(true, true);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), ORGANIZER, "IN_APP", true, false);
+        claims(ledger, CourseDeliveryTable.SUBMISSION, event.eventId(), ORGANIZER, "EMAIL", true, true);
         EmailLogResponse failed = new EmailLogResponse();
         failed.setStatus("FAILED");
         when(emails.sendEmail(any())).thenReturn(failed, sent());
@@ -93,7 +97,7 @@ class CourseSubmittedEventHandlerTest {
 
         verify(notifications, times(1)).sendNotification(any(CreateNotificationRequest.class));
         verify(emails, times(2)).sendEmail(any(SendEmailRequest.class));
-        verify(ledger).failed(event.eventId(), ORGANIZER, "EMAIL", "EMAIL_FAILED");
+        verify(ledger).failIfOwned(claim(CourseDeliveryTable.SUBMISSION, "EMAIL"), "EMAIL_FAILED");
         servers[0].verify();
     }
 }
