@@ -21,13 +21,13 @@ public class CourseOwnershipTransferredEventHandler {
     private static final Logger log = LoggerFactory.getLogger(CourseOwnershipTransferredEventHandler.class);
 
     private final RecipientDirectory directory;
-    private final CourseOwnershipDeliveryLedger ledger;
+    private final CourseDeliveryLedger ledger;
     private final NotificationService notifications;
     private final EmailDeliveryService emails;
 
     public CourseOwnershipTransferredEventHandler(
             RecipientDirectory directory,
-            CourseOwnershipDeliveryLedger ledger,
+            CourseDeliveryLedger ledger,
             NotificationService notifications,
             EmailDeliveryService emails) {
         this.directory = directory;
@@ -40,39 +40,42 @@ public class CourseOwnershipTransferredEventHandler {
         boolean retry = false;
         for (String channel : new String[] { "IN_APP", "EMAIL" }) {
             UUID recipientId = event.toInstructorId();
-            boolean claimed = false;
+            CourseDeliveryLedger.Claim claim = null;
             try {
-                claimed = ledger.claim(event, recipientId, channel);
-                if (!claimed) continue;
+                claim = ledger.claim(CourseDeliveryTable.OWNERSHIP, new CourseDeliveryLedger.Obligation(
+                        event.eventId(), event.organizationId(), event.courseId(), event.occurredAt(),
+                        recipientId, channel)).orElse(null);
+                if (claim == null) continue;
 
                 Recipient recipient = directory.find(event.organizationId(), recipientId).orElse(null);
                 if (recipient == null || !recipient.canBeWrittenTo()) {
-                    ledger.skipped(event.eventId(), recipientId, channel);
+                    ledger.skipped(claim);
                     continue;
                 }
                 if ("IN_APP".equals(channel)) {
-                    notifications.sendNotification(new CreateNotificationRequest(
+                    ledger.deliverInApp(claim, () -> notifications.sendNotification(new CreateNotificationRequest(
                             event.organizationId(), recipient.id(),
                             "Chuyển quyền phụ trách Course",
                             "Bạn đã được chuyển quyền phụ trách Course \"" + event.courseName() + "\".",
                             "COURSE_OWNERSHIP", "IN_APP",
                             "{\"courseId\":\"" + event.courseId() + "\",\"chainId\":\""
-                                    + event.chainId() + "\"}"));
+                                    + event.chainId() + "\"}")));
                 } else {
                     if (!recipient.hasEmail()) {
-                        ledger.skipped(event.eventId(), recipientId, channel);
+                        ledger.skipped(claim);
                         continue;
                     }
+                    ledger.requireOwned(claim);
                     EmailLogResponse result = emails.sendEmail(new SendEmailRequest(
                             recipient.email(), "LearnUP - Chuyển quyền phụ trách Course",
                             emailHtml(event), "COURSE_OWNERSHIP_TRANSFERRED"));
                     if (!"SENT".equals(result.getStatus()) && !"SIMULATED".equals(result.getStatus())) {
                         throw new DependencyUnavailableException("EMAIL_FAILED");
                     }
+                    ledger.sent(claim);
                 }
-                ledger.sent(event.eventId(), recipientId, channel);
             } catch (RuntimeException error) {
-                if (claimed) ledger.failed(event.eventId(), recipientId, channel, channel + "_FAILED");
+                if (claim != null) ledger.failIfOwned(claim, channel + "_FAILED");
                 log.warn("event=course_ownership_retry channel={} event_id={} error_type={}",
                         channel, event.eventId(), error.getClass().getSimpleName());
                 retry = true;
