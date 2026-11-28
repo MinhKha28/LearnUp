@@ -48,6 +48,16 @@ class OpenApiDocumentationTest {
                 assertThat(operation.path("responses").has("401")).isTrue();
                 assertThat(operation.path("parameters").size()).isZero(); // No raw identity/internal headers or principal parameter.
             }
+            String changePasswordRejected = spec.path("paths").path(prefix + "/change-password").path("post")
+                    .path("responses").path("400").path("description").asText();
+            assertThat(changePasswordRejected).contains("PASSWORD_CONFIRMATION_MISMATCH",
+                    "NEW_PASSWORD_SAME_AS_CURRENT", "CURRENT_PASSWORD_INCORRECT");
+            assertThat(spec.path("paths").path(prefix + "/change-password").path("post").path("description").asText())
+                    .contains("before checking the lock and the current password",
+                            "Only a wrong current password counts toward the lock")
+                    .doesNotContain("Verifies the current password first");
+            assertThat(spec.path("paths").path(prefix + "/reset-password").path("post").path("responses")
+                    .path("400").path("description").asText()).doesNotContain("CURRENT_PASSWORD_INCORRECT");
             assertThat(spec.path("paths").has(prefix + "/register")).isFalse();
             assertThat(spec.path("paths").path(prefix + "/login").path("post").path("responses").has("429")).isTrue();
             assertThat(spec.path("paths").path(prefix + "/reset-password").path("post").path("responses").has("503")).isTrue();

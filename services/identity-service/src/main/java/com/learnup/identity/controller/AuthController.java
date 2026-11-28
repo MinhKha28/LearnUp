@@ -67,7 +67,8 @@ public class AuthController {
     }
 
     @PostMapping("/change-password")
-    @Operation(summary = "Change own password", tags = "Passwords", description = "Verifies the current password first.")
+    @Operation(summary = "Change own password", tags = "Passwords", description = "Rejects a mismatched confirmation or a new password equal to the current one "
+            + "before checking the lock and the current password. Only a wrong current password counts toward the lock.")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     public ApiResponse<java.util.Map<String, String>> changePassword(
             @AuthenticationPrincipal UUID userId,

@@ -35,6 +35,13 @@ public class IdentityExceptionHandler extends GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getCode(), ex.getMessage()));
     }
 
+    @ExceptionHandler(PasswordChangeRejectedException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePasswordChangeRejected(PasswordChangeRejectedException ex) {
+        log.warn("event=request_rejected reason={} correlation_id={}", ex.getCode(), AuthenticationDiagnostics.correlationId());
+        return ResponseEntity.status(ex.getErrorCode().getHttpStatus())
+                .body(ApiResponse.error(ex.getCode(), ex.getMessage()));
+    }
+
     @Override
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
