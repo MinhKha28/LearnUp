@@ -33,12 +33,12 @@ public class CourseDecisionEventHandler {
     static final String APPROVED_TEMPLATE = "COURSE_APPROVED";
     static final String REJECTED_TEMPLATE = "COURSE_REJECTED";
 
-    private final CourseSubmissionDeliveryLedger ledger;
+    private final CourseDeliveryLedger ledger;
     private final NotificationService notifications;
     private final RecipientDirectory directory;
     private final EmailDeliveryService emails;
 
-    public CourseDecisionEventHandler(CourseSubmissionDeliveryLedger ledger, NotificationService notifications,
+    public CourseDecisionEventHandler(CourseDeliveryLedger ledger, NotificationService notifications,
                                       RecipientDirectory directory, EmailDeliveryService emails) {
         this.ledger = ledger;
         this.notifications = notifications;
@@ -54,26 +54,28 @@ public class CourseDecisionEventHandler {
         UUID instructor = event.instructorId();
         boolean retry = false;
         for (String channel : new String[] { CHANNEL, EMAIL_CHANNEL }) {
-            boolean claimed = false;
+            CourseDeliveryLedger.Claim claim = null;
             try {
-                claimed = ledger.claim(event, instructor, channel);
-                if (!claimed) continue;
+                claim = ledger.claim(CourseDeliveryTable.SUBMISSION, new CourseDeliveryLedger.Obligation(
+                        event.eventId(), event.organizationId(), event.courseId(), event.occurredAt(),
+                        instructor, channel)).orElse(null);
+                if (claim == null) continue;
                 if (CHANNEL.equals(channel)) {
-                    notifications.sendNotification(new CreateNotificationRequest(
+                    ledger.deliverInApp(claim, () -> notifications.sendNotification(new CreateNotificationRequest(
                             event.organizationId(), instructor, title(event), message(event), TYPE, CHANNEL,
-                            "{\"courseId\":\"" + event.courseId() + "\",\"versionNumber\":" + event.versionNumber() + "}"));
-                } else if (!sendEmail(event)) {
-                    ledger.skipped(event.eventId(), instructor, channel);
-                    continue;
+                            "{\"courseId\":\"" + event.courseId() + "\",\"versionNumber\":" + event.versionNumber() + "}")));
+                } else if (sendEmail(event, claim)) {
+                    ledger.sent(claim);
+                } else {
+                    ledger.skipped(claim);
                 }
-                ledger.sent(event.eventId(), instructor, channel);
             } catch (PermanentDeliveryException refused) {
                 // another service refused the request: trying again cannot fix it
-                if (claimed) ledger.failed(event.eventId(), instructor, channel, refused.code());
+                if (claim != null) ledger.failIfOwned(claim, refused.code());
                 log.error("event=course_decision_failed channel={} event_id={} reason={}",
                         channel, event.eventId(), refused.code());
             } catch (RuntimeException failure) {
-                if (claimed) ledger.failed(event.eventId(), instructor, channel, channel + "_FAILED");
+                if (claim != null) ledger.failIfOwned(claim, channel + "_FAILED");
                 log.warn("event=course_decision_retry channel={} event_id={} error_type={}",
                         channel, event.eventId(), failure.getClass().getSimpleName());
                 retry = true;
@@ -84,12 +86,13 @@ public class CourseDecisionEventHandler {
     }
 
     /** @return false when there is nobody to write to (the Instructor is gone, deactivated or has no e-mail) */
-    private boolean sendEmail(CourseDecisionEvent event) {
+    private boolean sendEmail(CourseDecisionEvent event, CourseDeliveryLedger.Claim claim) {
         Recipient recipient = directory.find(event.organizationId(), event.instructorId()).orElse(null);
         if (recipient == null || !recipient.canBeWrittenTo() || !recipient.hasEmail()) {
             log.info("event=course_decision_email_skipped reason=RECIPIENT_UNAVAILABLE event_id={}", event.eventId());
             return false;
         }
+        ledger.requireOwned(claim);
         EmailLogResponse result = emails.sendEmail(new SendEmailRequest(
                 recipient.email(), emailSubject(event), emailHtml(event, recipient.fullName()),
                 event.approved() ? APPROVED_TEMPLATE : REJECTED_TEMPLATE));
