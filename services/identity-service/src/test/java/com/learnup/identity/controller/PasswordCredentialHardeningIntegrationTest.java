@@ -310,6 +310,22 @@ class PasswordCredentialHardeningIntegrationTest {
     }
 
     @Test
+    @DisplayName("UC08: a new password equal to the current one does not count toward the lock")
+    void sameStoredPasswordDoesNotCountTowardTheLock() throws Exception {
+        User user = createUser("same-lock@learnup.test", PASSWORD, true);
+        String hashBefore = passwordHash(user);
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            changePassword(user, PASSWORD, " " + PASSWORD + " ".repeat(attempt))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("NEW_PASSWORD_SAME_AS_CURRENT"));
+        }
+
+        assertThat(passwordHash(user)).isEqualTo(hashBefore);
+        changePassword(user, PASSWORD, NEW_PASSWORD).andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("UC08: a mismatched confirmation has its own code and does not count toward the lock")
     void mismatchedConfirmationIsRejectedWithoutCountingTowardTheLock() throws Exception {
         User user = createUser("mismatch@learnup.test", PASSWORD, true);

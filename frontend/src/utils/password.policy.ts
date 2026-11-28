@@ -28,15 +28,30 @@ const CHANGE_PASSWORD_MESSAGES: Record<string, string> = {
 };
 
 /**
+ * The English messages an Identity build from before the per-reason codes returns with BAD_REQUEST.
+ * Kept so a newer frontend still shows the right message while Identity is older (staggered
+ * deploy, rollback, or a frontend pulled without rebuilding Identity).
+ */
+const LEGACY_CHANGE_PASSWORD_MESSAGES: Record<string, string> = {
+  "Current password is incorrect": CHANGE_PASSWORD_MESSAGES.CURRENT_PASSWORD_INCORRECT,
+  "New password cannot be the same as the current password":
+    CHANGE_PASSWORD_MESSAGES.NEW_PASSWORD_SAME_AS_CURRENT,
+  "New password and confirmation password do not match":
+    CHANGE_PASSWORD_MESSAGES.PASSWORD_CONFIRMATION_MISMATCH,
+};
+
+const lookup = (messages: Record<string, string>, key?: string): string | undefined =>
+  key !== undefined && Object.hasOwn(messages, key) ? messages[key] : undefined;
+
+/**
  * UC08: maps an Identity error envelope to the message shown on the change-password pages.
- * The choice follows the error code only, so a reworded English message cannot change it.
+ * A known error code decides the message. Only when the code is not one of them is the English
+ * message of an older Identity matched, and anything else gets the generic message.
  */
 export const changePasswordErrorMessage = (error?: {
   code?: string;
   message?: string;
-}): string => {
-  const code = error?.code;
-  return code !== undefined && Object.hasOwn(CHANGE_PASSWORD_MESSAGES, code)
-    ? CHANGE_PASSWORD_MESSAGES[code]
-    : "Chưa đổi được mật khẩu. Vui lòng thử lại.";
-};
+}): string =>
+  lookup(CHANGE_PASSWORD_MESSAGES, error?.code) ??
+  lookup(LEGACY_CHANGE_PASSWORD_MESSAGES, error?.message) ??
+  "Chưa đổi được mật khẩu. Vui lòng thử lại.";

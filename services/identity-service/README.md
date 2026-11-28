@@ -87,7 +87,7 @@ their own Bearer access JWT to Gateway, which supplies the private channel crede
 | POST | `/forgot-password` | Public | `email`; neutral response, hash-only token persistence, post-commit authenticated Notification email delivery |
 | POST | `/reset-password` | Public | `token`, `newPassword` and `confirmPassword`; validates a usable recovery token |
 | POST | `/logout` | Bearer through Gateway | Optional refresh-token session revocation; logout-all targets only the verified caller |
-| POST | `/change-password` | Bearer through Gateway | `currentPassword`, `newPassword` and `confirmPassword`; verifies current password first |
+| POST | `/change-password` | Bearer through Gateway | `currentPassword`, `newPassword` and `confirmPassword`; rejects a mismatched confirmation or a new password equal to the current one before checking the lock and the current password, so only a wrong current password counts toward the lock |
 | GET | `/me` | Bearer through Gateway | Identity's credential projection, without credential hashes or raw stored tokens |
 
 Successful login/refresh returns `accessToken`, `refreshToken`, `tokenType`,
