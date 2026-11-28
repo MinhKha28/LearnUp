@@ -98,6 +98,10 @@ const renderPage = (organizationId: string) =>
     </MemoryRouter>,
   );
 
+// CSS serialization uses 6 significant digits; 3 decimal places cover rounding
+// across the full 0–100% bar range while still detecting incorrect widths.
+const storageWidthDecimals = 3;
+
 describe("UC44.1 Admin organization detail page", () => {
   it("shows the organization, its Subscription, usage, Organizer and suspensions in Vietnamese", async () => {
     vi.mocked(getAdminOrganizationDetailAPI).mockResolvedValue(ok(abc));
@@ -121,14 +125,14 @@ describe("UC44.1 Admin organization detail page", () => {
     expect(screen.getByText("Mã số thuế 0312345678 cũng được 1 tổ chức khác sử dụng")).toBeTruthy();
   });
 
-  it.each([159, 199])("matches Organizer labels for %s of 200", async (used) => {
+  it.each([[159, 1_234_567], [199, 123_456_789]])("matches Organizer labels for %s of 200", async (used, storageUsed) => {
     const learners = { used, limit: 200, percent: null, warning: true };
     vi.mocked(getAdminOrganizationDetailAPI).mockResolvedValue(ok({
       ...abc,
       usage: {
         ...abc.usage!,
         learners,
-        storageBytes: { used: 1_234_567, limit: 3_758_096_384, percent: 0, warning: false },
+        storageBytes: { used: storageUsed, limit: 3_758_096_384, percent: 0, warning: false },
       },
     }));
     renderPage(ABC_ID);
@@ -139,8 +143,11 @@ describe("UC44.1 Admin organization detail page", () => {
     expect(within(learnerCard).getByText(used === 199 ? label! : `Đã dùng ${label}`)).toBeTruthy();
     expect(learnerCard.querySelector<HTMLElement>(".admin-usage-warning span")?.style.width).toBe(`${barWidth}%`);
     const storageCard = screen.getByText("Dung lượng lưu trữ").closest(".admin-metric") as HTMLElement;
-    expect(within(storageCard).getByText("Dưới 1%")).toBeTruthy();
-    expect(storageCard.querySelector<HTMLElement>(".admin-usage span")?.style.width).toBe(`${subscriptionUsage({ used: 1_234_567, limit: 3_758_096_384, warning: false }).barWidth}%`);
+    const storageUsage = subscriptionUsage({ used: storageUsed, limit: 3_758_096_384, warning: false });
+    expect(within(storageCard).getByText(storageUsed === 1_234_567 ? storageUsage.label! : `Đã dùng ${storageUsage.label}`)).toBeTruthy();
+    const storageWidth = storageCard.querySelector<HTMLElement>(".admin-usage span")?.style.width;
+    expect(storageWidth).toMatch(/%$/);
+    expect(Number.parseFloat(storageWidth!)).toBeCloseTo(storageUsage.barWidth, storageWidthDecimals);
   });
 
   it("shows an empty usage bar without values when used is null", async () => {
